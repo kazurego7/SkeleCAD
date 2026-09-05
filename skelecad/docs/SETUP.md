@@ -109,4 +109,4 @@ git commit -m "Prepare SkeleCAD source distribution"
 その後、利用するホスティング先で空のリポジトリを作り、そのURLを使って
 `git remote add origin <URL>`、`git push -u origin main`を実行します。
 この準備作業ではリモートの作成・登録や送信は行いません。
-オープンソースとして再利用を許可する場合は、所有者がライセンスを選び追加してください。
+独自コードとドキュメントの利用条件は、ルートの [MITライセンス](../../LICENSE) を参照してください。
