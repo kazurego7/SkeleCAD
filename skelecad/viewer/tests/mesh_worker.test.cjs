@@ -1,0 +1,20 @@
+const assert=require('node:assert/strict'),fs=require('node:fs'),vm=require('node:vm'),path=require('node:path'),crypto=require('node:crypto');
+let payload,transfers;
+const self={postMessage:(data,buffers)=>{payload=data;transfers=buffers;}};
+const bytes=new ArrayBuffer(134),view=new DataView(bytes);view.setUint32(80,1,true);
+[0,0,0,1,0,0,0,1,0].forEach((v,k)=>view.setFloat32(96+4*k,v,true));
+const sha=crypto.createHash('sha256').update(Buffer.from(bytes)).digest('hex');
+let input=bytes;
+vm.runInNewContext(fs.readFileSync(path.join(__dirname,'../mesh-worker.js'),'utf8'),{self,crypto:crypto.webcrypto,Float32Array,Uint8Array,DataView,fetch:async()=>({ok:true,arrayBuffer:async()=>input})});
+(async()=>{
+  await self.onmessage({data:{id:1,url:'model.stl',sha256:sha}});
+  assert.equal(payload.id,1);assert.equal(payload.sha256,sha);
+  assert.deepEqual(Array.from(payload.mesh.positions),[0,0,0,1,0,0,0,1,0]);
+  assert.deepEqual(Array.from(payload.mesh.normals),[0,0,1,0,0,1,0,0,1]);
+  assert.equal(transfers[0],payload.mesh.positions.buffer);assert.equal(transfers[1],payload.mesh.normals.buffer);
+  await self.onmessage({data:{id:2,url:'model.stl',sha256:'changed'}});assert.match(payload.error,/照合/);assert.equal(payload.mesh,undefined);
+  input=bytes.slice(0,100);await self.onmessage({data:{id:3,url:'bad.stl'}});assert.match(payload.error,/STL/);
+  input=bytes.slice(0);new DataView(input).setFloat32(96,NaN,true);
+  await self.onmessage({data:{id:4,url:'bad.stl'}});assert.match(payload.error,/座標/);
+  console.log('PASS: worker preserves coordinates/normals, transfers arrays and rejects stale or corrupt data');
+})().catch(error=>{console.error(error);process.exitCode=1;});

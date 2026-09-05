@@ -1,0 +1,2 @@
+# Tested CPU workflow dependencies; Hunyuan/CUDA use a separate environment.
+-r requirements-workflow.lock

@@ -1,0 +1,110 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>SkeleCAD 3Dビュワー</title>
+  <link rel="stylesheet" href="style.css?v=4.1.0">
+</head>
+<body>
+  <header>
+    <div class="brand"><h1>SkeleCAD</h1><p>中央で曲げる · 外側をなぞってねじる · 中ボタンで平行移動</p></div>
+    <div class="controls">
+      <input id="imageUpload" type="file" accept="image/png,image/jpeg,image/webp" hidden>
+      <label for="symmetrySide">左右対称化の基準側</label>
+      <select id="symmetrySide" class="actionSelect" hidden title="正面表示で残したい側を選び、YZ面の反対側へ反転します">
+        <option value="">左右対称化…</option>
+        <option value="negative_x">左側を基準</option>
+        <option value="positive_x">右側を基準</option>
+      </select>
+      <button id="restoreSymmetry" class="textButton" type="button" hidden>対称化を戻す</button>
+      <button id="partitionAdjust" class="textButton" type="button" hidden>分割位置を指定</button>
+      <span id="printState" role="status" aria-live="polite" hidden></span>
+      <button id="modelPicker" class="textButton modelPicker" type="button" aria-haspopup="dialog" aria-controls="modelGallery">3Dモデルを選ぶ</button>
+      <label for="modelSelect">表示するモデル</label>
+      <select id="modelSelect" hidden>
+        <option value="../build/palm_120/trex_hybrid_assembly.stl" data-description="全長120 mm。実機で選択したS3受け（6 mmボール・5.90 mm球面受け）を採用。A1 mini・0.4 mmノズル用。" data-thumbnail="../build/preview/hybrid_assembly.png">12 cm版：1.3.1</option>
+        <option value="../build/hybrid_20260830/trex_hybrid_assembly.stl" data-description="1.2.7：ソケット外縁の半周の丸め漏れを修正し全周R1へ統一。腕・脚・首・尾・足首などの切断縁を局所的に滑らかに加工。高さ1.5 mm、ボール6 mm／球面隙間0.6 mmと関節位置を維持。実機保持力未確認。">新規モデル：1.2.7 ジョイント加工済み</option>
+        <option value="../build/hybrid_20260830/print/trex_hybrid_full_print_plate.stl" data-description="今回の新規モデル・9部品の分離配置。印刷方向とサポートはスライサーで調整してください。">新規モデル：印刷配置</option>
+        <option value="../build/hybrid_20260830/parts/head.stl" data-description="新規加工済み：首ボール付き。顎は固定一体型です。">新規：頭</option>
+        <option value="../build/hybrid_20260830/parts/torso.stl" data-description="1.2.7：ソケット外縁を全周R1へ統一。首・肩・股・尾の切断境界を局所仕上げ。両股の装飾の縁は胴体側。">新規：胴体</option>
+        <option value="../build/hybrid_20260830/parts/arm_left.stl" data-description="前版から4 mm内側・2.5 mm前方へ。軸の先端は元の骨の内側に収め、T字状の補助部分を廃止。">新規：左腕</option>
+        <option value="../build/hybrid_20260830/parts/arm_right.stl" data-description="前版から4 mm内側・2.5 mm前方へ。軸の先端は元の骨の内側に収め、T字状の補助部分を廃止。">新規：右腕</option>
+        <option value="../build/hybrid_20260830/parts/leg_left.stl" data-description="1.2.7：足首ソケットの外縁を全周R1へ統一。脚の切断境界を局所仕上げ。膝は固定。">新規：左脚</option>
+        <option value="../build/hybrid_20260830/parts/leg_right.stl" data-description="1.2.7：足首ソケットの外縁を全周R1へ統一。脚の切断境界を局所仕上げ。膝は固定。">新規：右脚</option>
+        <option value="../build/hybrid_20260830/parts/foot_left.stl" data-description="新規加工済み：足首ボール付き。">新規：左足先</option>
+        <option value="../build/hybrid_20260830/parts/foot_right.stl" data-description="新規加工済み：足首ボール付き。">新規：右足先</option>
+        <option value="../build/hybrid_20260830/parts/tail.stl" data-description="付け根上側の指定箇所だけ斜めに加工。上下±15度を2.5度刻みで検証。尾の途中は固定です。">新規：しっぽ</option>
+        <option value="../build/generated_appearance/20260830_dfba1098/trex_new_200mm.stl" data-description="今回の画像から8/30に新規生成・外観確認用（精密ジョイント未加工）">新規生成：今回の画像（8/30）</option>
+        <option value="../build/generated_appearance/trex_appearance_200mm_outward.stl" data-description="8/21生成の旧外観です。今回の新規生成モデルではありません。">旧モデル：外観（8/21）</option>
+        <option value="../build/hybrid/trex_hybrid_assembly.stl" data-description="8/21の外観を使った旧組み立てモデルです。">旧モデル：組み立て状態</option>
+        <option value="../build/hybrid/print/trex_hybrid_full_print_plate.stl">旧：印刷配置</option>
+        <option value="../build/hybrid/parts/head.stl">旧：頭</option>
+        <option value="../build/hybrid/parts/torso.stl">旧：胴体</option>
+        <option value="../build/hybrid/parts/arm_left.stl">旧：左腕</option>
+        <option value="../build/hybrid/parts/arm_right.stl">旧：右腕</option>
+        <option value="../build/hybrid/parts/leg_left.stl">旧：左脚</option>
+        <option value="../build/hybrid/parts/leg_right.stl">旧：右脚</option>
+        <option value="../build/hybrid/parts/foot_left.stl">旧：左足先</option>
+        <option value="../build/hybrid/parts/foot_right.stl">旧：右足先</option>
+        <option value="../build/hybrid/parts/tail.stl">旧：しっぽ</option>
+        <option value="../build/parts/ball_connector_v2.stl">精密ジョイント単体</option>
+        <option value="../build/parts/joint_calibration_v2.stl">受けの隙間確認（0.4 / 0.6 / 0.8 mm）</option>
+        <option value="../build/parts/ball_test_key_v2.stl">直径6 mmの試験ボール</option>
+      </select>
+      <button id="resetView" type="button" aria-label="全体表示に戻す" title="全体表示に戻す">↺</button>
+      <button id="generationStop" class="iconButton dangerButton" type="button" aria-label="3D生成を停止" title="3D生成を停止" hidden>■</button>
+    </div>
+  </header>
+  <nav id="workflowBar" aria-label="制作の工程">
+    <button id="step0" type="button">画像</button><span aria-hidden="true">›</span>
+    <button id="step1" type="button">モデル</button><span aria-hidden="true">›</span>
+    <button id="step2" type="button">パーツ分割</button><span aria-hidden="true">›</span>
+    <button id="step3" type="button">可動域</button><span aria-hidden="true">›</span>
+    <button id="step4" type="button">プリント準備</button>
+    <p id="workflowHint" role="status"></p>
+  </nav>
+  <section id="workflowImage" aria-label="入力画像" hidden>
+    <p id="workflowImageMessage" role="status" hidden></p>
+    <img id="workflowSource" alt="このモデルの入力画像">
+    <p>ここに画像をドロップすると、新しい3Dモデルを作成します。PNG・JPEG・WebP対応</p>
+  </section>
+  <canvas id="gl" aria-label="3Dモデル" tabindex="0" title="パーツ中央：曲げる／パーツ外側を円弧ドラッグ：ねじり／Shift＋ドラッグ：ねじり／背景・胴体：視点回転／中ボタンドラッグ：平行移動／中ボタンダブルクリック：視点を戻す／画面外周を円弧ドラッグ・2本指をひねる：視点の傾き／ホイール・ピンチ：拡大縮小／矢印キー：微調整／Home：選択関節を戻す／Esc：全姿勢を戻す"></canvas>
+  <p id="collisionResult" role="status" hidden title="赤い点は食い込みを検出した位置です。裏側も表示します。近似判定なので小さな干渉を見逃す場合があります。印刷データは変わりません。"></p>
+  <div id="selectionInfo" role="status" aria-live="off" aria-label="選択パーツの角度" hidden title="各関節の初期姿勢が0°です。表示中の姿勢に対応する上下・左右・ねじり角。足先は脚に対する足首の角度です。"></div>
+  <aside id="poseSnapshots" aria-label="スナップショット一覧" hidden>
+    <div id="snapshotList"></div>
+  </aside>
+  <dialog id="modelGallery" class="modelGallery" aria-labelledby="modelGalleryTitle">
+    <div class="modelGalleryHeader">
+      <button id="modelTrashBack" class="textButton" type="button" hidden>← 3Dモデル</button>
+      <h2 id="modelGalleryTitle">3Dモデル</h2>
+      <div class="modelGalleryActions">
+        <button id="modelTrashEmpty" class="textButton dangerButton" type="button" hidden>すべて削除</button>
+        <button id="modelTrashOpen" class="iconButton" type="button" aria-label="ゴミ箱を開く" title="ゴミ箱を開く"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 4h8l1 2h4v2H3V6h4l1-2Zm-2 6h12l-1 10H7L6 10Zm4 2v6h2v-6h-2Zm4 0v6h2v-6h-2Z"/></svg></button>
+        <button id="modelGalleryClose" class="iconButton" type="button" aria-label="閉じる">×</button>
+      </div>
+    </div>
+    <p id="modelGalleryStatus" class="modelGalleryStatus" role="status" hidden></p>
+    <div id="modelGalleryList" class="modelGalleryList"></div>
+  </dialog>
+  <div id="snapshotFlash" aria-hidden="true" hidden></div>
+  <div id="status" role="status">モデルを読み込み中…</div>
+  <div id="twistGuide" aria-hidden="true" hidden></div>
+  <div id="partitionMarkers" aria-label="分割位置マーカー" hidden></div>
+  <div id="imageDrop" hidden>画像をドロップして3Dモデルを作成</div>
+  <div id="generationProgress" role="status" aria-live="polite" hidden>
+    <div class="generationProgressRow"><progress id="generationProgressBar" max="1" value="0"></progress><button id="generationPause" class="iconButton" type="button" aria-label="3D生成を一時停止" title="一時停止" hidden>Ⅱ</button></div>
+    <span id="generationProgressText"></span>
+  </div>
+  <p id="workflowStatus" role="status" hidden></p>
+  <script src="motion-core.js?v=4.0.0"></script>
+  <script src="motion-ui.js?v=4.0.0"></script>
+  <script src="model-gallery.js?v=3.14.1"></script>
+  <script src="pose-snapshots.js?v=3.12.0"></script>
+  <script src="mesh-cache.js?v=1"></script>
+  <script src="app.js?v=4.0.0"></script>
+  <script src="partition-ui.js?v=4.0.0"></script>
+  <script src="workflow-ui.js?v=4.1.2"></script>
+</body>
+</html>

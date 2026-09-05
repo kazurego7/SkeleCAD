@@ -1,0 +1,51 @@
+{
+  "active_slicer": "bambu_studio",
+  "bambu_studio": {
+    "version": "02.08.02.61",
+    "executable": "C:/Program Files/Bambu Studio/bambu-studio.exe",
+    "executable_sha256": "7680dac4a953cb4f8a96cc2b4ad4ea0b8bfc62f937d3491256922ff24dbb8268",
+    "library": "C:/Program Files/Bambu Studio/BambuStudio.dll",
+    "library_sha256": "b480fae45d6e6337bb531f74b8e90b4f4470bef623e1a33e81c03c43f621e768",
+    "profiles": "C:/Program Files/Bambu Studio/resources/profiles/BBL",
+    "machine_preset": "Bambu Lab A1 mini 0.4 nozzle",
+    "process_preset": "0.16mm Optimal @BBL A1M",
+    "filament_preset": "Bambu PLA Matte @BBL A1M"
+  },
+  "freecad": {
+    "version": "1.1.3",
+    "executable": ".tools/freecad-1.1.3/bin/freecad.exe",
+    "python": ".tools/freecad-1.1.3/bin/python.exe"
+  },
+  "gmsh": {
+    "version": "4.15.2",
+    "executable": ".tools/gmsh-4.15.2/gmsh.exe",
+    "executable_sha256": "317c43391e5b1fab3a1dd80dc5245dad6e2d087910f4b8ebc234bd6d4b8f41a1"
+  },
+  "calculix": {
+    "version": "2.23",
+    "executable": ".tools/calculix-2.23/ccx_static.exe",
+    "executable_sha256": "e18360eb32a5cd48f91a212c57069212cd8e27d2f798a599a78106bd0b3ecc1f"
+  },
+  "orcaslicer": {
+    "version": "2.4.2",
+    "executable": ".tools/orcaslicer-2.4.2/orca-slicer.exe",
+    "archive": ".tools/downloads/OrcaSlicer_Windows_V2.4.2_x64_portable.zip",
+    "archive_size_bytes": 171367668,
+    "archive_sha256": "feba3009dfb9d268779cca5758a1a5bc3b7d0722bf8fa48d5c57340de975d6be"
+  },
+  "workflow_python": {
+    "version": "3.14.7",
+    "executable": ".tools/python-runtime-3.14/Scripts/python.exe"
+  },
+  "inference_python": {
+    "version": "3.14.7",
+    "reason": "Validated Hunyuan3D 2.1 shape inference with current CUDA dependencies",
+    "executable": ".tools/hunyuan3d-2.1-modern-venv/Scripts/python.exe",
+    "torch_backend": "cu132"
+  },
+  "blender": {
+    "version": "5.2.1",
+    "executable": ".tools/blender-5.2.1-windows-x64/blender.exe",
+    "executable_sha256": "8f7a131ad8bc148edc218b334f07d92a57f5a357fa66d913b290537fd8353c06"
+  }
+}

@@ -1,0 +1,19 @@
+name: Source checks
+on: [push, pull_request, workflow_dispatch]
+permissions:
+  contents: read
+jobs:
+  source:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: '3.14'
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '24'
+      - name: Check publication contents and source syntax
+        run: python scripts/check_publication.py
+      - name: Test viewer
+        run: node scripts/test_source.cjs
