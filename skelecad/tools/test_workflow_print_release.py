@@ -9,7 +9,7 @@ from unittest.mock import patch
 
 from workflow_store import WorkflowStore,write_json
 from test_workflow import image_bytes
-import slice_workflow_print as slicer
+import prepare_workflow_project as project
 
 
 def digest(path):
@@ -38,7 +38,8 @@ class PrintReleaseTests(unittest.TestCase):
         write_json(self.plate/'result.json',{'return_code':0})
         self.record={'plate':1,'filename':self.filename,'sha256':digest(self.target)}
         self.release=self.folder/'print/release.json'
-        write_json(self.release,{'ready_to_print':True,'slicing_verified':True,'verification_run':False,
+        write_json(self.release,{'artifact_kind':'bambu_project','project_verified':True,'ready_to_open':True,
+                   'ready_to_print':False,'slicing_verified':False,'verification_run':False,
                    'manifest_sha256':digest(self.manifest),'review_approval_sha256':digest(self.approval),
                    'plates':[self.record]})
         state=self.store.read(self.job)
@@ -81,47 +82,6 @@ class PrintReleaseTests(unittest.TestCase):
             third=project.run(self.folder)
             self.assertFalse(third['project_reused']);self.assertEqual(build.call_count,2)
 
-    def speculative_proof(self):
-        preparation=self.folder/'print/preparation.json'
-        write_json(preparation,{'plates':[{'plate':1,'parts':[{'name':'core_00'}]}]})
-        previous=json.loads(self.release.read_text())
-        previous.update(verification_run=True,ready_to_print=False,cache_context='same-auditor',
-                        preparation_sha256=digest(preparation))
-        executable=self.folder/'slicer.exe';executable.write_bytes(b'pinned executable')
-        library=self.folder/'slicer.dll';library.write_bytes(b'pinned library')
-        tool={'executable':str(executable),'executable_sha256':digest(executable),
-              'library':str(library),'library_sha256':digest(library)}
-        return previous,tool
-
-    def test_speculative_proof_reuses_only_identical_verified_bytes(self):
-        previous,tool=self.speculative_proof()
-        write_json(self.release,previous)
-        with patch.object(slicer,'BAMBU',tool),patch.object(slicer,'cache_context',return_value='same-auditor'), \
-             patch.object(slicer,'package') as package,patch.object(slicer.subprocess,'run') as launch:
-            report=slicer.run(self.folder)
-            package.assert_not_called();launch.assert_not_called()
-        self.assertTrue(report['ready_to_print'])
-        self.assertFalse(report['verification_run'])
-        self.assertTrue(report['plates'][0]['speculative_slice_reused'])
-        self.assertEqual(report['review_approval_sha256'],digest(self.approval))
-        self.assertEqual(self.store.artifact(self.job,self.name),self.target)
-
-    def test_speculative_proof_rejects_every_mutated_dependency(self):
-        previous,tool=self.speculative_proof()
-        files=[self.manifest,self.part,self.target,self.folder/'print/preparation.json',Path(tool['executable']),Path(tool['library']),self.approval]
-        manifest_digest=digest(self.manifest);approval_digest=digest(self.approval)
-        with patch.object(slicer,'BAMBU',tool),patch.object(slicer,'cache_context',return_value='same-auditor'):
-            for path in files:
-                with self.subTest(path=path.name):
-                    original=path.read_bytes();path.write_bytes(original+b'changed')
-                    self.assertIsNone(slicer.reuse_verified(self.folder,previous,manifest_digest,approval_digest,False))
-                    path.write_bytes(original)
-            with patch.object(slicer,'cache_context',return_value='new-code-or-settings'):
-                self.assertIsNone(slicer.reuse_verified(self.folder,previous,manifest_digest,approval_digest,False))
-        for field,value in (('verification_run',False),('slicing_verified',False),('ready_to_print',True)):
-            with self.subTest(field=field):
-                self.assertIsNone(slicer.reuse_verified(self.folder,{**previous,field:value},manifest_digest,approval_digest,False))
-
     def test_ready_release_opens_exact_validated_file_in_bambu_studio(self):
         with patch('workflow_store.find_bambu_studio',return_value=Path('C:/Program Files/Bambu Studio/bambu-studio.exe')), \
              patch('workflow_store.subprocess.Popen') as launch:
@@ -147,8 +107,8 @@ class PrintReleaseTests(unittest.TestCase):
 
     def test_invalid_release_flags_and_duplicate_records_fail_closed(self):
         original=json.loads(self.release.read_text())
-        for change in ({'ready_to_print':False},{'ready_to_print':'true'},
-                       {'verification_run':True},{'slicing_verified':False},
+        for change in ({'ready_to_open':False},{'ready_to_open':'true'},
+                       {'verification_run':True},{'slicing_verified':True},{'project_verified':False},
                        {'review_approval_sha256':None},{'plates':[self.record,self.record]}):
             with self.subTest(change=change):
                 write_json(self.release,{**original,**change})
@@ -167,47 +127,17 @@ class PrintReleaseTests(unittest.TestCase):
         self.release.unlink()
         with self.assertRaises(KeyError):self.store.artifact(self.job,self.name)
 
-    def test_failed_packaging_revokes_previous_ready_release_and_preserves_it(self):
-        with patch.object(slicer,'package',side_effect=ValueError('pack failed')):
-            with self.assertRaisesRegex(ValueError,'pack failed'):slicer.run(self.folder)
-        self.assertFalse(json.loads(self.release.read_text())['ready_to_print'])
-        backups=list(self.release.parent.glob('release_before_*.json'))
-        self.assertEqual(len(backups),1)
-        self.assertTrue(json.loads(backups[0].read_text())['ready_to_print'])
+    def test_failed_packaging_revokes_previous_ready_release(self):
+        with patch.object(project,'cache_context',return_value='context'), patch.object(project,'package',side_effect=ValueError('pack failed')):
+            with self.assertRaisesRegex(ValueError,'pack failed'):project.run(self.folder)
+        self.assertFalse(json.loads(self.release.read_text())['ready_to_open'])
         self.assertEqual(self.target.read_bytes(),b'previous checked output')
         with self.assertRaises(KeyError):self.store.artifact(self.job,self.name)
 
-    def test_zero_exit_without_fresh_outputs_never_reuses_old_slicing(self):
-        reports=[{'plate':1,'parts':[{'name':'core_00'}]}]
-        attempts=[]
-        def no_output(command,**kwargs):
-            cwd=kwargs['cwd'];attempts.append(cwd)
-            self.assertNotEqual(cwd,self.plate)
-            self.assertFalse((cwd/'result.json').exists())
-            self.assertFalse((cwd/self.filename).exists())
-            self.assertTrue((cwd/'input.3mf').is_file())
-            self.assertEqual(Path(command[command.index('--outputdir')+1]),cwd)
-            return SimpleNamespace(returncode=0)
-        with patch.object(slicer,'package',return_value=reports), \
-             patch.object(slicer.subprocess,'run',side_effect=no_output), \
-             patch.object(slicer,'audit_input') as audit:
-            for _ in range(2):
-                with self.assertRaises(FileNotFoundError):slicer.run(self.folder)
-            audit.assert_not_called()
-        self.assertEqual(len(set(attempts)),2)
-        self.assertFalse(json.loads(self.release.read_text())['ready_to_print'])
-        self.assertEqual(self.target.read_bytes(),b'previous checked output')
-
-    def test_nonzero_slicer_exit_is_not_released(self):
-        with patch.object(slicer,'package',return_value=[{'plate':1}]), \
-             patch.object(slicer.subprocess,'run',return_value=SimpleNamespace(returncode=1)):
-            with self.assertRaisesRegex(ValueError,'slicing failed'):slicer.run(self.folder)
-        self.assertFalse(json.loads(self.release.read_text())['ready_to_print'])
-
     def test_empty_preparation_cannot_be_ready(self):
-        with patch.object(slicer,'package',return_value=[]):
-            with self.assertRaisesRegex(ValueError,'No print plates'):slicer.run(self.folder)
-        self.assertFalse(json.loads(self.release.read_text())['ready_to_print'])
+        with patch.object(project,'cache_context',return_value='context'),patch.object(project,'package',return_value=[]):
+            with self.assertRaisesRegex(ValueError,'No project plates'):project.run(self.folder)
+        self.assertFalse(json.loads(self.release.read_text())['ready_to_open'])
 
 
 if __name__=='__main__':unittest.main()

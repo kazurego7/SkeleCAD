@@ -6,7 +6,11 @@
   const progressBox=document.getElementById('generationProgress'),progressBar=document.getElementById('generationProgressBar'),progressText=document.getElementById('generationProgressText');
   const pauseButton=document.getElementById('generationPause'),stopButton=document.getElementById('generationStop');
   const partitionButton=document.getElementById('partitionAdjust');
-  const symmetrySide=document.getElementById('symmetrySide'),restoreSymmetry=document.getElementById('restoreSymmetry');
+  const symmetryOpen=document.getElementById('openSymmetry'),symmetryDialog=document.getElementById('symmetryDialog'),symmetryApply=document.getElementById('symmetryApply'),symmetryStatus=document.getElementById('symmetryStatus');
+  const symmetryCards=[['symmetryOriginal','original'],['symmetryLeft','negative_x'],['symmetryRight','positive_x']];
+  let symmetryChoice='original',symmetryJobId=null,symmetrySubmitting=false;
+  function selectSymmetry(choice){symmetryChoice=choice;for(const [id,value] of symmetryCards)document.getElementById(id)?.setAttribute?.('aria-pressed',String(value===choice));}
+
   const returnToPartition=document.getElementById('returnToPartition');
   const printState=document.getElementById('printState');
   const jobs=new Map();let token=null,uploading=false,depth=0,lastLoaded=null;
@@ -97,6 +101,7 @@
       if(warning)button.title=canVisitJoints?'分割にエラーがあります。確定済みの部分だけ可動域を確認できます':'分割にエラーがあります。確認できる可動域はまだありません';
       if(i===4&&!canPrepare)button.title=failed?'エラーを解消するとプリント準備へ進めます':'処理がすべて完了するとプリント準備へ進めます';
     });
+    const tools=document.getElementById('workflowTools');if(tools)tools.hidden=![1,2,3].includes(step)||!job?.manifest;
     if(imagePanel)imagePanel.hidden=step!==0;
     document.documentElement?.setAttribute('data-workflow-step',String(step));
     if(sourceImage){sourceImage.hidden=!job;if(job)sourceImage.src=api+'jobs/'+job.id+'/files/source.png';}
@@ -111,11 +116,9 @@
       hint.textContent=(job.background.stage==='failed'?'ジョイント加工に失敗：':'プリント準備に失敗：')+(job.background.error||'処理を完了できませんでした。');
     }
     if(hint)hint.dataset.error=String(backgroundFailure);
-    if(symmetrySide&&step!==1)symmetrySide.hidden=true;
-    if(restoreSymmetry&&step!==1)restoreSymmetry.hidden=true;
+    if(symmetryOpen){symmetryOpen.hidden=step!==1||!job?.manifest;symmetryOpen.disabled=Boolean(busy||symmetrySubmitting||window.SkelePartition?.hasPendingChanges());}
     if(partitionButton)partitionButton.hidden=true;
     if(returnToPartition)returnToPartition.hidden=true;
-    if(step===1&&job?.manifest&&!busy){if(symmetrySide)symmetrySide.hidden=false;if(restoreSymmetry)restoreSymmetry.hidden=!job.appearance_symmetry?.active;}
   }
   const active=new Set(['queued','starting','preparing','generating','analysing','paused','symmetrizing','partitioning','machining','printing']);
   const generation=new Set(['queued','starting','preparing','generating','analysing','paused']);
@@ -140,9 +143,6 @@
     const controlling=Boolean(job&&generation.has(job.stage)&&!job.mechanical_revision);
     if(pauseButton){pauseButton.hidden=!controlling;pauseButton.disabled=false;const paused=job?.stage==='paused';pauseButton.textContent=paused?'▶':'Ⅱ';pauseButton.setAttribute?.('aria-label',paused?'3D生成を再開':'3D生成を一時停止');pauseButton.ariaLabel=paused?'3D生成を再開':'3D生成を一時停止';pauseButton.title=paused?'再開':'一時停止';}
     if(stopButton){stopButton.hidden=!controlling;stopButton.disabled=false;}
-    const appearanceEditable=Boolean(job&&['appearance_ready','partition_failed','symmetry_failed'].includes(job.stage)&&!job.mechanical_revision&&!window.SkelePartition?.hasPendingChanges());
-    if(symmetrySide){symmetrySide.hidden=!appearanceEditable;symmetrySide.disabled=false;}
-    if(restoreSymmetry){restoreSymmetry.hidden=!(appearanceEditable&&job.appearance_symmetry?.active);restoreSymmetry.disabled=false;}
     if(partitionButton)partitionButton.hidden=!(job&&['appearance_ready','partition_failed'].includes(job.stage)&&!job.mechanical_revision&&!window.SkelePartition?.isActive());
     if(returnToPartition)returnToPartition.hidden=!(job&&['mechanical_review','machining_failed','print_failed','print_ready'].includes(job.stage)&&job.partition_revision);
     if(printState){
@@ -210,28 +210,30 @@
     const step=viewedStep;apply(restored,false);viewedStep=step;lastLoaded=restored.manifest+':'+restored.manifest_sha256;controls();
     return restored;
   }
-  symmetrySide?.addEventListener('change',async()=>{
-    let job=jobs.get(modelSelect.value.replace(/^job:/,''));const sourceSide=symmetrySide.value;symmetrySide.value='';
-    if(!job||!sourceSide)return;
-    symmetrySide.disabled=true;window.SkelePartition?.end?.();message('左右対称化を開始します…');
-    try{
-      job=await ensureEditable(job.id);
-      token=(await request('session')).token;
-      apply(await request('jobs/'+job.id+'/symmetry',{method:'POST',headers:{'Content-Type':'application/json','X-SkeleCAD-Token':token},
-        body:JSON.stringify({manifest_sha256:job.manifest_sha256,source_side:sourceSide})}));
-    }catch(error){message(error.message);}
-    finally{symmetrySide.disabled=false;controls();}
+  symmetryOpen?.addEventListener('click',()=>{
+    const job=jobs.get(modelSelect.value.replace(/^job:/,''));if(!job||symmetryOpen.disabled)return;
+    symmetryJobId=job.id;selectSymmetry(job.appearance_symmetry?.active?job.appearance_symmetry.source_side:'original');
+    symmetryStatus.hidden=true;symmetryDialog.showModal();
   });
-  restoreSymmetry?.addEventListener('click',async()=>{
-    let job=jobs.get(modelSelect.value.replace(/^job:/,''));if(!job)return;
-    restoreSymmetry.disabled=true;message('左右対称化前の形状へ戻しています…');
+  document.getElementById('symmetryClose')?.addEventListener('click',()=>symmetryDialog.close());
+  for(const [id,value] of symmetryCards)document.getElementById(id)?.addEventListener('click',()=>{if(!symmetrySubmitting)selectSymmetry(value);});
+  symmetryApply?.addEventListener('click',async()=>{
+    if(symmetrySubmitting)return;
+    let job=jobs.get(modelSelect.value.replace(/^job:/,''));
+    if(!job||job.id!==symmetryJobId){symmetryStatus.textContent='モデルが切り替わりました。開き直してください。';symmetryStatus.hidden=false;return;}
+    const sourceSide=symmetryChoice,current=job.appearance_symmetry?.active?job.appearance_symmetry.source_side:'original';
+    if(sourceSide===current){symmetryDialog.close();return;}
+    symmetrySubmitting=true;symmetryApply.disabled=true;symmetryStatus.hidden=true;
+    for(const [id] of symmetryCards)document.getElementById(id).disabled=true;
+    window.SkelePartition?.end?.();message(sourceSide==='original'?'元のモデルへ戻しています…':'左右対称化を開始します…');
     try{
       token=(await request('session')).token;
-      job=await ensureEditable(job.id);
-      const restored=await request('jobs/'+job.id+'/restore-symmetry',{method:'POST',headers:{'Content-Type':'application/json','X-SkeleCAD-Token':token},body:'{}'});
-      lastLoaded=null;apply(restored);
-    }catch(error){message(error.message);}
-    finally{restoreSymmetry.disabled=false;controls();}
+      const restoring=sourceSide==='original';
+      const result=await request('jobs/'+job.id+(restoring?'/restore-symmetry':'/symmetry'),{method:'POST',headers:{'Content-Type':'application/json','X-SkeleCAD-Token':token},
+        body:restoring?'{}':JSON.stringify({manifest_sha256:job.manifest_sha256,source_side:sourceSide})});
+      lastLoaded=null;apply(result);symmetryDialog.close();
+    }catch(error){symmetryStatus.textContent=error.message;symmetryStatus.hidden=false;message(error.message);}
+    finally{symmetrySubmitting=false;symmetryApply.disabled=false;for(const [id] of symmetryCards)document.getElementById(id).disabled=false;controls();}
   });
   async function prepareAndOpen(job){
     if(preparing||opening)return;
@@ -303,7 +305,7 @@
       token=(await request('session')).token;const stopped=await request('jobs/'+job.id+'/cancel',{method:'POST',headers:{'Content-Type':'application/json','X-SkeleCAD-Token':token},body:'{}'});
       jobs.delete(job.id);const option=Array.from(modelSelect.options).find(item=>item.value==='job:'+job.id);option?.remove?.();
       if(option&&!option.remove){const index=Array.from(modelSelect.options).indexOf(option);if(index>=0)modelSelect.options.splice(index,1);}
-      const fallback=Array.from(modelSelect.options).find(item=>!item.value.startsWith('job:'));if(fallback){modelSelect.value=fallback.value;lastLoaded=null;loadModel(fallback.value);remember();}
+      modelSelect.value=Array.from(modelSelect.options)[0]?.value||'';lastLoaded=null;viewedStep=0;loadModel(modelSelect.value);remember();
       progressBox.hidden=true;message(stopped.message);
     }
     catch(error){message(error.message);}finally{stopButton.disabled=false;controls();}
@@ -315,6 +317,7 @@
     if(files?.length!==1){uploadMessage('画像を1枚ずつドロップしてください。');return;}uploadFile(files[0]);});
   modelSelect.addEventListener('change',()=>{lastLoaded=null;remember();const job=jobs.get(modelSelect.value.replace(/^job:/,''));message(job?.message||'');showProgress(job);controls();});
   window.SkeleCADWorkflow={refreshControls:controls,ensureEditable,
+    stateKey(id){const job=jobs.get(id),symmetry=job?.appearance_symmetry;return 'job:'+id+':'+(symmetry?.active?symmetry.source_side:'original');},
     modelLoaded(){const job=jobs.get(modelSelect.value.replace(/^job:/,''));if((viewedStep??currentStep(job))===2)window.SkelePartition?.begin();void prefetchStages(job);},
     restoreJob(job){apply(job,false);window.SkeleModelGallery?.refresh?.();},
     async manifest(id,isCurrent=()=>true){
@@ -380,5 +383,6 @@
     catch(error){if(Array.from(jobs.values()).some(j=>active.has(j.stage)))message('生成状態を取得できません。接続を再確認しています。');}
     setTimeout(refresh,2000);
   }
+  controls();
   refresh();
 })();

@@ -232,7 +232,7 @@ def finalize():
         f"- 干渉判定: 全{hybrid_collision['pairs_checked']}組、意図した嵌め合いを除く余剰重複体積の許容上限 "
         f"{hybrid_collision.get('maximum_allowed_excess_overlap_mm3', hybrid_collision.get('maximum_allowed_overlap_mm3'))} mm³",
         f"- 標準骨部品の実形状CAE（新しい恐竜全体ではありません）: {actual['end_load_n']:.1f} N、変位 {actual['max_loaded_rim_displacement_mm']:.3f} mm、最大応力 {actual['max_von_mises_mpa']:.2f} MPa",
-        f"- ツール環境: {'合格' if environment['passed'] else '不合格'}（FreeCAD {environment['versions']['freecad']} / Gmsh {environment['versions']['gmsh']} / CalculiX {environment['versions']['calculix']} / OrcaSlicer {environment['versions']['orcaslicer']}）",
+        f"- ツール環境: {'合格' if environment['passed'] else '不合格'}（FreeCAD {environment['versions']['freecad']} / Gmsh {environment['versions']['gmsh']} / CalculiX {environment['versions']['calculix']}）",
         f"- ボールジョイント: 直径 {joints['ball_diameter_mm']:.1f} mm、ソケット隙間 {joints['diametral_clearance_mm']:.1f} mm、前後左右 {min(joint_motion['pitch_collision_free_deg'], joint_motion['yaw_collision_free_deg'])}°以上無干渉",
         f"- 実パーツ可動: 外観優先の方向別可動（最大 {hybrid_motion['maximum_test_angle_deg']}°）、8接続すべて検証合格、頭部は固定一体型",
         f"- ボール首CAE: {ball_cae['side_load_n']:.1f} N、変位 {ball_cae['max_loaded_cap_displacement_mm']:.3f} mm、最大応力 {ball_cae['max_von_mises_mpa']:.2f} MPa",

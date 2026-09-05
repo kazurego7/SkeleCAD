@@ -686,38 +686,5 @@ def main():
     from trex_v2_project import main as build_trex_v2
     return build_trex_v2()
 
-    for pattern in ("*.step", "*.stl", "*.3mf"):
-        for stale in PARTS_DIR.glob(pattern):
-            stale.unlink()
-    shapes = {
-        "connector_v1": double_connector(),
-        "bone_short": straight_bone(PARAMS["bones"]["short_length_mm"]),
-        "bone_long": straight_bone(PARAMS["bones"]["long_length_mm"]),
-        "trex_arm_bone": bent_bone(PARAMS["bones"]["tiny_length_mm"], -4.0),
-        "trex_femur": bent_bone(PARAMS["bones"]["long_length_mm"], 10.0),
-        "trex_shin": bent_bone(PARAMS["bones"]["short_length_mm"], -7.0),
-        "trex_rib_cage": trex_rib_cage(),
-        "hub_3way": three_way_hub(),
-        "hub_cross": cross_hub(),
-        "trex_skull": trex_skull(),
-        "arm_claw": arm_claw(),
-        "calibration_coupon": calibration_coupon(),
-    }
-    reports = [export_shape(name, shape) for name, shape in shapes.items()]
-    build_documents(shapes)
-    print_package = make_print_package(shapes)
-    report = {
-        "project": PARAMS["project"],
-        "freecad_version": ".".join(str(v) for v in App.Version()[:3]),
-        "joint_version": J["version"],
-        "parts": reports,
-        "print_package": print_package,
-    }
-    (REPORTS_DIR / "cad_report.json").write_text(
-        json.dumps(report, indent=2, ensure_ascii=False), encoding="utf-8"
-    )
-    print(json.dumps(report, ensure_ascii=False))
-
-
 if __name__ == "__main__":
     main()

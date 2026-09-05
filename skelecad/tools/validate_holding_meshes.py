@@ -3,7 +3,7 @@ import hashlib,json,sys,zipfile
 from pathlib import Path
 from xml.etree import ElementTree as ET
 import trimesh
-from audit_orca_print import NS,arrays
+from print_package_audit import NS,arrays
 
 ROOT=Path(__file__).resolve().parents[1]
 

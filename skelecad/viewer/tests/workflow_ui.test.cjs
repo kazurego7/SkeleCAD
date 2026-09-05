@@ -2,7 +2,7 @@ const assert=require('node:assert/strict'),fs=require('node:fs'),vm=require('nod
 const css=fs.readFileSync(path.join(__dirname,'../style.css'),'utf8');
 assert.match(css,/#generationPause[^}]*pointer-events:auto/,'pause button remains clickable inside the click-through progress panel');
 const nodes=new Map(),events={},timers=[],requests=[],loaded=[];
-function node(id){if(!nodes.has(id))nodes.set(id,{hidden:true,dataset:{},handlers:{},value:'',children:[],replaceChildren(){this.children=[];},append(x){this.children.push(x);},showModal(){this.open=true;},addEventListener(type,fn){this.handlers[type]=fn;},click(){this.clicked=true;}});return nodes.get(id);}
+function node(id){if(!nodes.has(id))nodes.set(id,{hidden:true,dataset:{},handlers:{},value:'',children:[],replaceChildren(){this.children=[];},append(x){this.children.push(x);},showModal(){this.open=true;},close(){this.open=false;},setAttribute(name,value){this[name]=value;},addEventListener(type,fn){this.handlers[type]=fn;},click(){this.clicked=true;}});return nodes.get(id);}
 const select=node('modelSelect');select.options=[{value:'legacy'}];select.value='legacy';select.prepend=o=>select.options.unshift(o);
 const id='a'.repeat(32),job={id,name:'blue_robot.png',stage:'queued',message:'生成待ち',progress:{value:.25,percent:25,label:'形を組み立て中',remaining_seconds:125,elapsed_seconds:60,estimate_basis:'実測'}};
 let catalog=[],cleared=0,partitionBegins=0,partitionLoads=0,deferManifest=false;
@@ -184,6 +184,25 @@ const flush=()=>new Promise(resolve=>setImmediate(resolve));
   assert.equal(failedPreview.joints[0].motion_ready,false);
   assert.equal(failedPreview.print_ready,false);
   context.fetch=fetchBefore;
+  delete job.background;delete job.appearance_symmetry;delete job.mechanical_revision;job.stage='appearance_ready';
+  select.value='job:'+id;context.window.SkeleCADWorkflow.restoreJob(job);await node('step1').handlers.click();
+  assert.equal(node('workflowTools').hidden,false);assert.equal(node('openSymmetry').hidden,false);
+  node('openSymmetry').handlers.click();assert.equal(node('symmetryDialog').open,true);
+  assert.equal(node('symmetryOriginal')['aria-pressed'],'true');
+  let posts=requests.filter(r=>r.method==='POST').length;
+  await node('symmetryApply').handlers.click();assert.equal(requests.filter(r=>r.method==='POST').length,posts,'unchanged original selection never triggers machining');
+  node('openSymmetry').handlers.click();node('symmetryLeft').handlers.click();node('symmetryClose').handlers.click();
+  assert.equal(requests.filter(r=>r.method==='POST').length,posts,'closing the modal never changes geometry');
+  job.mechanical_revision='saved-joints';job.stage='mechanical_review';context.window.SkeleCADWorkflow.restoreJob(job);
+  const repartitionsBefore=requests.filter(r=>r.url.endsWith('/repartition')).length;
+  node('openSymmetry').handlers.click();node('symmetryRight').handlers.click();await node('symmetryApply').handlers.click();
+  assert.equal(requests.filter(r=>r.url.endsWith('/repartition')).length,repartitionsBefore,'symmetry switch must preserve the current completed joint state');
+  const submitted=requests.findLast(r=>r.url.endsWith('/symmetry'));assert.equal(JSON.parse(submitted.body).source_side,'positive_x');
+  job.appearance_symmetry={active:true,source_side:'positive_x'};context.window.SkeleCADWorkflow.restoreJob(job);
+  assert.equal(context.window.SkeleCADWorkflow.stateKey(id),'job:'+id+':positive_x');
+  node('openSymmetry').handlers.click();assert.equal(node('symmetryRight')['aria-pressed'],'true','the currently applied choice is shown when reopening');
+  node('symmetryOriginal').handlers.click();await node('symmetryApply').handlers.click();assert.ok(requests.findLast(r=>r.url.endsWith('/restore-symmetry')));
+  await node('step0').handlers.click();assert.equal(node('workflowTools').hidden,true);assert.equal(node('openSymmetry').hidden,true);
   select.value='legacy';select.handlers.change();
   delete job.mechanical_revision;job.stage='generating';catalog=[job];select.value='job:'+id;timers.shift()();await flush();
   await node('generationStop').handlers.click();assert.ok(requests.some(r=>r.url.endsWith('/cancel')));assert.equal(select.value,'legacy');assert.equal(node('generationProgress').hidden,true);

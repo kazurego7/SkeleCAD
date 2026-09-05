@@ -7,7 +7,7 @@ from pathlib import Path
 import numpy as np
 import trimesh
 from unittest.mock import patch
-import prepare_bambu_print
+import bambu_settings
 from prepare_workflow_print import orient,pack
 from audit_workflow_motion import moving_parts,pose_matrices
 from workflow_store import WorkflowStore,write_json
@@ -15,10 +15,20 @@ from test_workflow import image_bytes
 
 
 class WorkflowPrintTests(unittest.TestCase):
+    def test_empty_project_does_not_read_historical_templates(self):
+        from bambu_project_schema import empty_project
+        from print_package_audit import NS
+        with patch('pathlib.Path.open',side_effect=AssertionError('Unexpected template access')):
+            root,obj,item,metadata,model,payload=empty_project()
+        self.assertEqual(root.get('unit'),'millimeter')
+        self.assertIsNotNone(obj.find(NS+'components/'+NS+'component'))
+        self.assertIsNotNone(model.find('.//'+NS+'mesh'))
+        self.assertEqual(set(payload),{'[Content_Types].xml','_rels/.rels'})
+
     def test_fast_xml_preserves_coordinate_precision_and_face_order(self):
         from prepare_workflow_print import mesh_xml,NS
         from xml.etree import ElementTree as ET
-        from audit_orca_print import arrays
+        from print_package_audit import arrays
         mesh=trimesh.creation.icosphere(subdivisions=1);mesh.vertices*=1.234567890123
         offset=np.array([.123456789123,-.234567891234,.345678912345])
         slow=ET.Element(NS+'mesh');vertices=ET.SubElement(slow,NS+'vertices');faces=ET.SubElement(slow,NS+'triangles')
@@ -28,9 +38,9 @@ class WorkflowPrintTests(unittest.TestCase):
         self.assertTrue(np.array_equal(before[0],after[0]));self.assertTrue(np.array_equal(before[1],after[1]))
 
     def test_gui_preset_merge_preserves_custom_settings(self):
-        settings=prepare_bambu_print.native_settings()
+        settings=bambu_settings.native_settings()
         for index,kind,key in [(0,'process','process_preset'),(1,'filament','filament_preset'),(2,'machine','machine_preset')]:
-            baseline=prepare_bambu_print.preset(kind,prepare_bambu_print.BAMBU[key])
+            baseline=bambu_settings.preset(kind,bambu_settings.BAMBU[key])
             changed=set(filter(None,settings['different_settings_to_system'][index].split(';')))
             self.assertTrue(changed<=baseline.keys())
             restored={**baseline,**{k:settings[k] for k in changed}}
@@ -41,8 +51,8 @@ class WorkflowPrintTests(unittest.TestCase):
         self.assertIn('support_interface_speed',settings['different_settings_to_system'][0])
 
     def test_production_print_defaults_to_support_enabled(self):
-        with patch.object(prepare_bambu_print,'preset',return_value={}):
-            settings=prepare_bambu_print.native_settings()
+        with patch.object(bambu_settings,'preset',return_value={}):
+            settings=bambu_settings.native_settings()
         self.assertEqual(settings['enable_support'],'1')
         self.assertEqual(settings['support_type'],'tree(auto)')
         self.assertEqual(settings['support_interface_spacing'],'0.2')

@@ -146,7 +146,7 @@ CADの子プロセスが異常終了した場合、出力全文を `worker.log` 
 現在の通常ワークフローでは先行処理・プリント準備のどちらも
 `prepare_workflow_project.run` を使い、スライサーを起動しない。
 配置・サポート設定を入れた編集可能な3MFを開き、利用者がBambu Studioでスライスする。
-従来の `slice_workflow_print.py` は明示的な検証用として残す。
+事前スライス用の旧処理は削除。スライスは Bambu Studio で行う。
 新しいリリースは `artifact_kind=bambu_project`、`ready_to_open=true` を使い、
 `ready_to_print=false`、`slicing_verified=false` を維持する。前の工程の形状・姿勢確認、
 3MFと元形状の一致検査、ハッシュによる更新検知は省略しない。

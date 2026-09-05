@@ -38,14 +38,11 @@ def main():
     freecad = CONFIG["freecad"]
     gmsh = CONFIG["gmsh"]
     calculix = CONFIG["calculix"]
-    orca = CONFIG["orcaslicer"]
     paths = {
         "freecad": workspace_path(freecad["executable"]),
         "python": workspace_path(freecad["python"]),
         "gmsh": workspace_path(gmsh["executable"]),
         "calculix": workspace_path(calculix["executable"]),
-        "orcaslicer": workspace_path(orca["executable"]),
-        "orcaslicer_archive": workspace_path(orca["archive"]),
     }
     for name in ('blender', 'workflow_python', 'inference_python'):
         paths[name] = workspace_path(CONFIG[name]['executable'])
@@ -60,8 +57,6 @@ def main():
     ccx_match = re.search(r"\b\d+\.\d+(?:\.\d+)?\b", ccx_text)
     gmsh_actual = gmsh_match.group(0) if gmsh_match else None
     ccx_actual = ccx_match.group(0) if ccx_match else None
-    archive_size = paths["orcaslicer_archive"].stat().st_size
-    archive_hash = sha256(paths["orcaslicer_archive"])
 
     checks = {
         "freecad_version": freecad_actual == freecad["version"],
@@ -70,9 +65,6 @@ def main():
         # even though it prints a valid version. Solver job exit codes are still
         # enforced by the CAE stages.
         "calculix_version": ccx_actual == calculix["version"],
-        "orcaslicer_executable": paths["orcaslicer"].is_file(),
-        "orcaslicer_archive_size": archive_size == orca["archive_size_bytes"],
-        "orcaslicer_archive_sha256": archive_hash.lower() == orca["archive_sha256"].lower(),
     }
     for name in ('gmsh', 'calculix', 'blender'):
         checks[name + '_sha256'] = sha256(paths[name]) == CONFIG[name]['executable_sha256']
@@ -89,7 +81,6 @@ def main():
             "freecad": freecad_actual,
             "gmsh": gmsh_actual,
             "calculix": ccx_actual,
-            "orcaslicer": orca["version"],
             "python": sys.version.split()[0],
             "workflow_python": CONFIG['workflow_python']['version'],
             "inference_python": CONFIG['inference_python']['version'],
@@ -97,10 +88,6 @@ def main():
         },
         "version_command_exit_codes": {"gmsh": gmsh_code, "calculix": ccx_code},
         "paths": {name: str(path) for name, path in paths.items()},
-        "orcaslicer_archive": {
-            "size_bytes": archive_size,
-            "sha256": archive_hash,
-        },
     }
     REPORT.parent.mkdir(parents=True, exist_ok=True)
     REPORT.write_text(json.dumps(report, indent=2), encoding="utf-8")

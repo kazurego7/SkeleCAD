@@ -4,55 +4,19 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <title>SkeleCAD 3Dビュワー</title>
-  <link rel="stylesheet" href="style.css?v=4.1.0">
+  <link rel="stylesheet" href="style.css?v=4.3.0">
 </head>
 <body>
   <header>
     <div class="brand"><h1>SkeleCAD</h1><p>中央で曲げる · 外側をなぞってねじる · 中ボタンで平行移動</p></div>
     <div class="controls">
       <input id="imageUpload" type="file" accept="image/png,image/jpeg,image/webp" hidden>
-      <label for="symmetrySide">左右対称化の基準側</label>
-      <select id="symmetrySide" class="actionSelect" hidden title="正面表示で残したい側を選び、YZ面の反対側へ反転します">
-        <option value="">左右対称化…</option>
-        <option value="negative_x">左側を基準</option>
-        <option value="positive_x">右側を基準</option>
-      </select>
-      <button id="restoreSymmetry" class="textButton" type="button" hidden>対称化を戻す</button>
       <button id="partitionAdjust" class="textButton" type="button" hidden>分割位置を指定</button>
       <span id="printState" role="status" aria-live="polite" hidden></span>
       <button id="modelPicker" class="textButton modelPicker" type="button" aria-haspopup="dialog" aria-controls="modelGallery">3Dモデルを選ぶ</button>
       <label for="modelSelect">表示するモデル</label>
       <select id="modelSelect" hidden>
-        <option value="../build/palm_120/trex_hybrid_assembly.stl" data-description="全長120 mm。実機で選択したS3受け（6 mmボール・5.90 mm球面受け）を採用。A1 mini・0.4 mmノズル用。" data-thumbnail="../build/preview/hybrid_assembly.png">12 cm版：1.3.1</option>
-        <option value="../build/hybrid_20260830/trex_hybrid_assembly.stl" data-description="1.2.7：ソケット外縁の半周の丸め漏れを修正し全周R1へ統一。腕・脚・首・尾・足首などの切断縁を局所的に滑らかに加工。高さ1.5 mm、ボール6 mm／球面隙間0.6 mmと関節位置を維持。実機保持力未確認。">新規モデル：1.2.7 ジョイント加工済み</option>
-        <option value="../build/hybrid_20260830/print/trex_hybrid_full_print_plate.stl" data-description="今回の新規モデル・9部品の分離配置。印刷方向とサポートはスライサーで調整してください。">新規モデル：印刷配置</option>
-        <option value="../build/hybrid_20260830/parts/head.stl" data-description="新規加工済み：首ボール付き。顎は固定一体型です。">新規：頭</option>
-        <option value="../build/hybrid_20260830/parts/torso.stl" data-description="1.2.7：ソケット外縁を全周R1へ統一。首・肩・股・尾の切断境界を局所仕上げ。両股の装飾の縁は胴体側。">新規：胴体</option>
-        <option value="../build/hybrid_20260830/parts/arm_left.stl" data-description="前版から4 mm内側・2.5 mm前方へ。軸の先端は元の骨の内側に収め、T字状の補助部分を廃止。">新規：左腕</option>
-        <option value="../build/hybrid_20260830/parts/arm_right.stl" data-description="前版から4 mm内側・2.5 mm前方へ。軸の先端は元の骨の内側に収め、T字状の補助部分を廃止。">新規：右腕</option>
-        <option value="../build/hybrid_20260830/parts/leg_left.stl" data-description="1.2.7：足首ソケットの外縁を全周R1へ統一。脚の切断境界を局所仕上げ。膝は固定。">新規：左脚</option>
-        <option value="../build/hybrid_20260830/parts/leg_right.stl" data-description="1.2.7：足首ソケットの外縁を全周R1へ統一。脚の切断境界を局所仕上げ。膝は固定。">新規：右脚</option>
-        <option value="../build/hybrid_20260830/parts/foot_left.stl" data-description="新規加工済み：足首ボール付き。">新規：左足先</option>
-        <option value="../build/hybrid_20260830/parts/foot_right.stl" data-description="新規加工済み：足首ボール付き。">新規：右足先</option>
-        <option value="../build/hybrid_20260830/parts/tail.stl" data-description="付け根上側の指定箇所だけ斜めに加工。上下±15度を2.5度刻みで検証。尾の途中は固定です。">新規：しっぽ</option>
-        <option value="../build/generated_appearance/20260830_dfba1098/trex_new_200mm.stl" data-description="今回の画像から8/30に新規生成・外観確認用（精密ジョイント未加工）">新規生成：今回の画像（8/30）</option>
-        <option value="../build/generated_appearance/trex_appearance_200mm_outward.stl" data-description="8/21生成の旧外観です。今回の新規生成モデルではありません。">旧モデル：外観（8/21）</option>
-        <option value="../build/hybrid/trex_hybrid_assembly.stl" data-description="8/21の外観を使った旧組み立てモデルです。">旧モデル：組み立て状態</option>
-        <option value="../build/hybrid/print/trex_hybrid_full_print_plate.stl">旧：印刷配置</option>
-        <option value="../build/hybrid/parts/head.stl">旧：頭</option>
-        <option value="../build/hybrid/parts/torso.stl">旧：胴体</option>
-        <option value="../build/hybrid/parts/arm_left.stl">旧：左腕</option>
-        <option value="../build/hybrid/parts/arm_right.stl">旧：右腕</option>
-        <option value="../build/hybrid/parts/leg_left.stl">旧：左脚</option>
-        <option value="../build/hybrid/parts/leg_right.stl">旧：右脚</option>
-        <option value="../build/hybrid/parts/foot_left.stl">旧：左足先</option>
-        <option value="../build/hybrid/parts/foot_right.stl">旧：右足先</option>
-        <option value="../build/hybrid/parts/tail.stl">旧：しっぽ</option>
-        <option value="../build/parts/ball_connector_v2.stl">精密ジョイント単体</option>
-        <option value="../build/parts/joint_calibration_v2.stl">受けの隙間確認（0.4 / 0.6 / 0.8 mm）</option>
-        <option value="../build/parts/ball_test_key_v2.stl">直径6 mmの試験ボール</option>
       </select>
-      <button id="resetView" type="button" aria-label="全体表示に戻す" title="全体表示に戻す">↺</button>
       <button id="generationStop" class="iconButton dangerButton" type="button" aria-label="3D生成を停止" title="3D生成を停止" hidden>■</button>
     </div>
   </header>
@@ -64,6 +28,10 @@
     <button id="step4" type="button">プリント準備</button>
     <p id="workflowHint" role="status"></p>
   </nav>
+  <div id="workflowTools" aria-label="表示の操作" hidden>
+    <button id="resetView" class="textButton" type="button" title="視点と関節の姿勢を初期状態に戻す">↺ 表示をリセット</button>
+    <button id="openSymmetry" class="textButton" type="button" aria-haspopup="dialog" aria-controls="symmetryDialog" hidden>左右対称化</button>
+  </div>
   <section id="workflowImage" aria-label="入力画像" hidden>
     <p id="workflowImageMessage" role="status" hidden></p>
     <img id="workflowSource" alt="このモデルの入力画像">
@@ -75,6 +43,26 @@
   <aside id="poseSnapshots" aria-label="スナップショット一覧" hidden>
     <div id="snapshotList"></div>
   </aside>
+  <dialog id="symmetryDialog" class="symmetryDialog" aria-labelledby="symmetryTitle">
+    <div class="symmetryHeader"><h2 id="symmetryTitle">左右対称化</h2><button id="symmetryClose" class="iconButton" type="button" aria-label="閉じる">×</button></div>
+    <p>正面から見た左右を基準に、使いたい形を選びます。</p>
+    <div class="symmetryCards" role="group" aria-label="モデルの形">
+      <button id="symmetryOriginal" class="symmetryCard" type="button" aria-pressed="true">
+        <svg viewBox="0 0 120 76" aria-hidden="true"><path class="shape" d="M53 14 37 23 22 16 14 47 41 57 52 67 64 58 84 62 105 47 87 22 73 31 65 14Z"/><path class="axis" d="M60 5V71"/></svg>
+        <strong>左右対称化しない</strong><span>元の形をそのまま使う</span>
+      </button>
+      <button id="symmetryLeft" class="symmetryCard" type="button" aria-pressed="false">
+        <svg viewBox="0 0 120 76" aria-hidden="true"><path class="shape kept" d="M60 14 44 23 24 17 14 47 41 57 51 67 60 58Z"/><path class="shape mirrored" d="M60 14 76 23 96 17 106 47 79 57 69 67 60 58Z"/><path class="axis" d="M60 5V71"/></svg>
+        <strong>左を基準とする</strong><span>左の形を右へ反映</span>
+      </button>
+      <button id="symmetryRight" class="symmetryCard" type="button" aria-pressed="false">
+        <svg viewBox="0 0 120 76" aria-hidden="true"><path class="shape mirrored" d="M60 14 44 23 24 17 14 47 41 57 51 67 60 58Z"/><path class="shape kept" d="M60 14 76 23 96 17 106 47 79 57 69 67 60 58Z"/><path class="axis" d="M60 5V71"/></svg>
+        <strong>右を基準とする</strong><span>右の形を左へ反映</span>
+      </button>
+    </div>
+    <p id="symmetryStatus" role="status" hidden></p>
+    <div class="symmetryFooter"><button id="symmetryApply" class="textButton" type="button">適用</button></div>
+  </dialog>
   <dialog id="modelGallery" class="modelGallery" aria-labelledby="modelGalleryTitle">
     <div class="modelGalleryHeader">
       <button id="modelTrashBack" class="textButton" type="button" hidden>← 3Dモデル</button>
@@ -99,12 +87,12 @@
   </div>
   <p id="workflowStatus" role="status" hidden></p>
   <script src="motion-core.js?v=4.0.0"></script>
-  <script src="motion-ui.js?v=4.0.0"></script>
-  <script src="model-gallery.js?v=3.14.1"></script>
-  <script src="pose-snapshots.js?v=3.12.0"></script>
+  <script src="motion-ui.js?v=4.2.0"></script>
+  <script src="model-gallery.js?v=4.2.0"></script>
+  <script src="pose-snapshots.js?v=4.3.1"></script>
   <script src="mesh-cache.js?v=1"></script>
-  <script src="app.js?v=4.0.0"></script>
-  <script src="partition-ui.js?v=4.0.0"></script>
-  <script src="workflow-ui.js?v=4.1.2"></script>
+  <script src="app.js?v=4.3.1"></script>
+  <script src="partition-ui.js?v=4.2.0"></script>
+  <script src="workflow-ui.js?v=4.3.1"></script>
 </body>
 </html>

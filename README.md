@@ -1,14 +1,8 @@
 # SkeleCAD
 
-**1枚の画像から、動かせる3Dモデルへ。**
-
-画像から生成したモデルに分割位置を指定すると、ボールジョイントを加工。
-ブラウザで動かして確かめ、3Dプリント用のデータをBambu Studioへ渡せるWindows向けアプリです。
+**1枚の画像から、自由に動く3Dプリントモデルを生成！**
 
 ![画像からモデル生成、パーツ分割、関節の可動確認までを紹介するSkeleCADの実画面](docs/media/workflow.gif)
-
-*プテラノドンの操作例。生成・加工の待ち時間は省略しています。*
-[静止画で見る](docs/media/workflow.png)
 
 ## できること
 
@@ -16,7 +10,7 @@
 - **好きな位置でパーツを分ける** — マーカーで分割位置を調整。左右対称の指定にも対応。
 - **関節を動かして確かめる** — ボールジョイントを自動加工し、曲げ・ねじり・食い込みを確認。
 - **加工を待ちながら確認する** — 前回確定した形状を表示し、未変更の関節は処理中も操作。
-- **プリントに持ち込む** — 向き・配置・サポート設定を入れた3MFをBambu Studioで開く。
+- **プリントに持ち込む** — 準備済みのモデルをBambu Studioで開く。
 
 ## 使い方
 
@@ -29,8 +23,6 @@
 | **プリント準備** | 準備済み3MFをBambu Studioで開きます。スライスと印刷はBambu Studioで行います。 |
 
 工程の矢羽根をクリックすると、前の工程にも戻れます。
-赤は分割・加工のエラー、黄色の注意表示は可動域を部分的にしか確認できない状態です。
-処理中・エラー時はプリント準備へ進めません。
 
 ### 基本操作
 
@@ -43,54 +35,21 @@
 
 ## はじめる
 
-現在は**ソースから環境を構築して使う試作版**です。インストーラーはありません。
-初回は [セットアップガイド](skelecad/docs/SETUP.md) に従って準備してください。
+Windowsと、CUDA対応のNVIDIA GPUが必要です。Bambu Studioをインストールしてください。
 
-- Windows、Python実行環境、FreeCADなどの外部ツールが必要です。
-- 画像生成にはCUDA対応のNVIDIA GPUとHunyuan3Dのモデルが必要です。
-- Bambu Studioへの引き渡しは、現在 **A1 mini・0.4mmノズル・PLA** の設定を対象にしています。
+| ツール | 用途 | ダウンロード |
+| --- | --- | --- |
+| Bambu Studio | プリント準備・スライス・印刷 | [公式ダウンロード](https://github.com/bambulab/BambuStudio/releases/tag/v02.08.02.61) |
 
-準備ができたら、リポジトリのルートで起動します。
+FreeCADとAI実行環境は初回起動時に自動で準備します。
 
-```powershell
-.\skelecad\tools\open_3d_viewer.ps1
-```
-
-ブラウザが開いたら、画像をドロップして始められます。
-アップロード画像・生成モデル・作業履歴はローカルに保存されます。
-紹介画像の元データ、AIモデルの重み、外部アプリはこのリポジトリに同梱していません。
-
-## 印刷する前に
-
-SkeleCADが渡すのは**スライス前の3MF**です。Bambu Studioで設定とサポートを確認し、
-スライスしてから印刷してください。SkeleCADからプリンターへ直接送信はしません。
-
-画像からの形状生成と関節加工は実験的です。画面上の可動確認は、実物の嵌合や強度を
-保証するものではありません。小さな試し刷りで、はまり具合を確認してください。
-
-## もっと詳しく
-
-- [操作・運用ガイド](skelecad/README.md)
-- [セットアップ](skelecad/docs/SETUP.md)
-- [設計と検証](skelecad/docs/DESIGN.md)
-- [変更履歴](skelecad/docs/CHANGELOG.md)
-
-<details>
-<summary>開発者向け：ソースの検証</summary>
+リポジトリを取得・展開したフォルダーで、PowerShellから次の1行を実行します。
 
 ```powershell
-python scripts/check_publication.py
-node scripts/test_source.cjs
+powershell -ExecutionPolicy Bypass -File .\start.ps1
 ```
 
-公開対象の検査はGitのインデックスを対象とします。
-CAD・STL・衝突・CalculiXの検証は、必要なツールと入力を用意して
-`skelecad/tools/build.ps1`を実行する別工程です。
-
-</details>
 
 ## ライセンス
 
-SkeleCADの独自コードとドキュメントは [MITライセンス](LICENSE) です。
-外部ソフトウェア・AIモデル・利用する画像には、それぞれの利用条件が適用されます。
-詳しくは [第三者のソフトウェア・素材について](THIRD_PARTY_NOTICES.md) を参照してください。
+[MITライセンス](LICENSE) · [ライセンス・クレジット](THIRD_PARTY_NOTICES.md)

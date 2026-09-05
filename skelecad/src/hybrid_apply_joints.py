@@ -210,19 +210,9 @@ def main():
     }
 
     local_reliefs=[]
-    def apply_reliefs(stage):
-        for spec in H.get('local_reliefs',[]):
-            if spec.get('stage','after_joints')!=stage:continue
-            name=spec['part'];before=parts[name]
-            parts[name]=difference(before,load(TOOLS/f"{spec['name']}.stl"),spec['name'])
-            local_reliefs.append({'name':spec['name'],'part':name,'stage':stage,
-                                  'removed_volume_mm3':float(before.volume-parts[name].volume),
-                                  'box_min_mm':spec['box_min_mm'],'box_max_mm':spec['box_max_mm']})
-    if H.get('cut_edge_finish'):
-        edge_finish=finish_anatomy(parts)
-    else:
-        edge_finish=[]
-        apply_legacy_joints(parts,apply_reliefs)
+    if not H.get('cut_edge_finish'):
+        raise ValueError('Current cut_edge_finish configuration is required')
+    edge_finish=finish_anatomy(parts)
 
     report_parts = []
     for name, mesh in parts.items():
@@ -296,27 +286,6 @@ def main():
     if not result["passed"]:
         raise RuntimeError("Hybrid jointed part topology validation failed")
 
-
-def apply_legacy_joints(parts,apply_reliefs):
-    apply_reliefs('before_joints')
-    parts["torso"] = apply_socket(parts["torso"], "neck")
-    parts["head"] = apply_ball(parts["head"], "neck")
-    parts["torso"] = apply_socket(parts["torso"], "shoulder_left")
-    parts["arm_left"] = apply_ball(parts["arm_left"], "shoulder_left")
-    parts["torso"] = apply_socket(parts["torso"], "shoulder_right")
-    parts["arm_right"] = apply_ball(parts["arm_right"], "shoulder_right")
-    parts["torso"] = apply_socket(parts["torso"], "hip_left")
-    parts["leg_left"] = apply_ball(parts["leg_left"], "hip_left")
-    parts["torso"] = apply_socket(parts["torso"], "hip_right")
-    parts["leg_right"] = apply_ball(parts["leg_right"], "hip_right")
-    parts["torso"] = apply_socket(parts["torso"], "tail_root")
-    parts["tail"] = apply_ball(parts["tail"], "tail_root")
-    parts["leg_left"] = apply_socket(parts["leg_left"], "ankle_left")
-    parts["foot_left"] = apply_ball(parts["foot_left"], "ankle_left")
-    parts["leg_right"] = apply_socket(parts["leg_right"], "ankle_right")
-    parts["foot_right"] = apply_ball(parts["foot_right"], "ankle_right")
-
-    apply_reliefs('after_joints')
 
 if __name__ == "__main__":
     main()

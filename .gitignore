@@ -27,3 +27,6 @@ node_modules/
 .DS_Store
 Thumbs.db
 desktop.ini
+
+# Machine-specific installed application locations
+skelecad/config/toolchain.local.json

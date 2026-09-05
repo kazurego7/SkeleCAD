@@ -4,23 +4,17 @@ from pathlib import Path
 from xml.etree import ElementTree as ET
 import numpy as np
 import trimesh
-from prepare_bambu_print import native_settings,BAMBU,PARAMS,ROOT
-from prepare_palm_print import set_meta
-from audit_orca_print import NS,PNS,arrays
+from bambu_settings import native_settings,BAMBU,PARAMS,ROOT
+from print_package_audit import set_meta
+from print_package_audit import NS,PNS,arrays
 
 C=PARAMS['joint_retention_trial'];BASE=ROOT/C['output_directory']
 def main(names=None,title='Retention R1 - 5 patterns',profile_name='SkeleCAD Retention R1 0.12 Support ON'):
     for key in ('executable','library'):
         assert hashlib.sha256(Path(BAMBU[key]).read_bytes()).hexdigest()==BAMBU[key+'_sha256']
-    template=ROOT/'build/print_ready/bambu_1.3.0/input/fit_kit.3mf'
-    with zipfile.ZipFile(template) as z:
-        root=ET.fromstring(z.read('3D/3dmodel.model'));md=ET.fromstring(z.read('Metadata/model_settings.config'))
-        original_obj=copy.deepcopy(root.find(NS+'resources/'+NS+'object'))
-        original_item=copy.deepcopy(root.find(NS+'build/'+NS+'item'))
-        original_md=copy.deepcopy(md.find('object'))
-        object_path=original_obj.find(NS+'components/'+NS+'component').get(PNS+'path').lstrip('/')
-        original_model=ET.fromstring(z.read(object_path))
-        payload={n:z.read(n) for n in ('[Content_Types].xml','_rels/.rels')}
+    from bambu_project_schema import empty_project
+    root,original_obj,original_item,original_md,original_model,payload=empty_project()
+    md=ET.Element('config')
     resources=root.find(NS+'resources');resources.clear();build=root.find(NS+'build');build.clear();md.clear()
     rel_ns='http://schemas.openxmlformats.org/package/2006/relationships'
     rel=ET.Element('Relationships',xmlns=rel_ns)

@@ -16,12 +16,12 @@ vm.runInContext(fs.readFileSync(path.join(__dirname,'../pose-snapshots.js'),'utf
 const api={motion:()=>motion,model:()=>currentModel,camera:()=>({yaw:1,pitch:2,roll:3,distanceRatio:1.5,centerOffset:[0,0,0]}),setCamera:value=>cameraSet=value,
   resetView:()=>resetCount++,capture:()=> 'data:image/jpeg;base64,preview',requestRender(){}};
 const snapshots=context.module.exports.createPoseSnapshots(api);snapshots.sync();
-assert.equal(elements.get('poseSnapshots').hidden,false);assert.equal(elements.get('resetView').hidden,true);assert.match(elements.get('snapshotList').innerHTML,/正面/);
+assert.equal(elements.get('poseSnapshots').hidden,false);assert.equal(elements.get('resetView').hidden,false);assert.doesNotMatch(elements.get('snapshotList').innerHTML,/正面/);
 assert.match(elements.get('snapshotList').innerHTML,/snapshotAddCard/);assert.match(elements.get('snapshotList').innerHTML,/snapshotCameraIcon/);
-assert.doesNotMatch(elements.get('snapshotList').innerHTML,/新規追加/);assert.match(elements.get('snapshotList').innerHTML,/data-default="true"/);
+assert.doesNotMatch(elements.get('snapshotList').innerHTML,/新規追加/);assert.doesNotMatch(elements.get('snapshotList').innerHTML,/data-default/);
 assert.doesNotMatch(elements.get('snapshotList').innerHTML,/<small>|基準の姿勢|関節を変更/);
-assert.match(elements.get('snapshotList').innerHTML,/draggable="false"/);
-let dragPrevented=false;const defaultDragTarget={closest:selector=>selector==='.snapshotCard'?{dataset:{id:'front'}}:null};
+assert.doesNotMatch(elements.get('snapshotList').innerHTML,/<img/);
+let dragPrevented=false;const defaultDragTarget={closest:selector=>selector==='.snapshotCard'?{dataset:{id:'add'}}:null};
 elements.get('poseSnapshots').handlers.dragstart({target:defaultDragTarget,preventDefault:()=>dragPrevented=true});assert.equal(dragPrevented,true,'default thumbnail cannot begin a native file drag');
 const addArticle={dataset:{id:'add'}},addTarget={closest:selector=>selector==='.snapshotCard'?addArticle:null};
 elements.get('snapshotList').handlers.click({target:addTarget});
@@ -31,7 +31,7 @@ timers.get(Math.max(...timers.keys()))();assert.equal(elements.get('snapshotFlas
 pose={hip:[24,0,0],ankle:[0,0,0]};elements.get('snapshotList').handlers.click({target:addTarget});
 assert.deepEqual(JSON.parse(JSON.stringify(snapshots.items().map(item=>item.name))),['スナップショット 2','スナップショット 1']);
 const rendered=elements.get('snapshotList').innerHTML;
-assert.ok(rendered.indexOf('data-id="front"')<rendered.indexOf('snapshotAddCard'));
+assert.ok(!rendered.includes('data-id="front"'));
 assert.ok(rendered.indexOf('snapshotAddCard')<rendered.indexOf(`data-id="${snapshots.items()[0].id}"`));
 assert.ok(rendered.indexOf(`data-id="${snapshots.items()[0].id}"`)<rendered.indexOf(`data-id="${snapshots.items()[1].id}"`));
 assert.doesNotMatch(rendered,/<strong>|<small>|>姿勢|>正面|>1<|>2</);
@@ -54,10 +54,17 @@ const deleteTarget={closest:selector=>selector==='.snapshotDelete'?{}:selector==
 elements.get('snapshotList').handlers.click({target:deleteTarget});assert.equal(snapshots.items().length,1);
 const remaining={dataset:{id:snapshots.items()[0].id}},remainingDelete={closest:selector=>selector==='.snapshotDelete'?{}:selector==='.snapshotCard'?remaining:null};
 elements.get('snapshotList').handlers.click({target:remainingDelete});assert.equal(snapshots.items().length,0);
-const front={dataset:{id:'front'}},frontTarget={closest:selector=>selector==='.snapshotCard'?front:null};
-elements.get('snapshotList').handlers.click({target:frontTarget});assert.equal(resetCount,1);assert.ok(restored.joints.every(j=>j.angles.every(n=>n===0)));
+snapshots.clearSelection();assert.doesNotMatch(elements.get('snapshotList').innerHTML,/aria-current="true"/);
 currentModel='model-b';snapshots.sync();assert.equal(snapshots.items().length,0,'another model starts with its own empty snapshot list');
 elements.get('snapshotList').handlers.click({target:addTarget});assert.equal(snapshots.items().length,1);assert.equal(snapshots.items()[0].model,'model-b');
 currentModel='model-a';snapshots.sync();assert.equal(snapshots.items().length,0,'switching back does not show snapshots saved for another model');
+for(const side of ['original','negative_x','positive_x']){
+  currentModel='job:same:'+side;snapshots.sync();assert.equal(snapshots.items().length,0);
+  elements.get('snapshotList').handlers.click({target:addTarget});
+}
+for(const side of ['original','negative_x','positive_x']){
+  currentModel='job:same:'+side;snapshots.sync();assert.equal(snapshots.items().length,1);
+  assert.equal(snapshots.items()[0].model,currentModel);
+}
 active=false;snapshots.sync();assert.equal(elements.get('poseSnapshots').hidden,true);assert.equal(elements.get('resetView').hidden,false);
-console.log('PASS: image snapshots persist per model with pose/camera, drag-reorder, restore, delete and permanent front reset');
+console.log('PASS: image snapshots persist per model with pose/camera, drag-reorder, restore, delete and selection reset without a default card');

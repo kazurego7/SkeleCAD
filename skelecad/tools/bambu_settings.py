@@ -1,13 +1,14 @@
 """Native Bambu presets + unchanged validated mesh/placement, no Orca settings."""
-import argparse,hashlib,json,sys,zipfile
+import hashlib,json
 from pathlib import Path
 from xml.etree import ElementTree as ET
-ROOT=Path(__file__).resolve().parents[1];sys.path.insert(0,str(ROOT/'src'))
-from hybrid_context import PARAMS,HYBRID
-from audit_orca_print import project_audit,NS
+ROOT=Path(__file__).resolve().parents[1]
+PARAMS=json.loads((ROOT/'config/parameters.json').read_text(encoding='utf-8'))
+from print_package_audit import NS
 ET.register_namespace('',NS[1:-1])
 ET.register_namespace('p','http://schemas.microsoft.com/3dmanufacturing/production/2015/06')
-TOOLCHAIN=json.loads((ROOT/'config/toolchain.json').read_text(encoding='utf-8'))
+from runtime_paths import tool_config
+TOOLCHAIN=tool_config()
 BAMBU=TOOLCHAIN['bambu_studio']
 PRESET_FILES={}
 
@@ -53,28 +54,3 @@ def native_settings():
                         ('different_settings_to_system','inherits_group')))
         for kind in ('process','filament','machine')]
     return settings
-
-def main():
-    parser=argparse.ArgumentParser();parser.add_argument('--fit',action='store_true');args=parser.parse_args()
-    for key in ('executable','library'):
-        assert hashlib.sha256(Path(BAMBU[key]).read_bytes()).hexdigest()==BAMBU[key+'_sha256']
-    rev=PARAMS['project']['revision'];job='fit_kit' if args.fit else '120mm'
-    source=ROOT/'build/print_ready'/f'SkeleCAD_{rev}_{job}_A1mini_BambuMatte_TexturedPEI.3mf'
-    model_audit=project_audit(source,args.fit,str(HYBRID.relative_to(ROOT)))
-    settings=native_settings()
-    with zipfile.ZipFile(source) as z:payload={n:z.read(n) for n in z.namelist() if not n.endswith('.gcode')}
-    root=ET.fromstring(payload['3D/3dmodel.model'])
-    for item in list(root.findall(NS+'metadata')):
-        if item.get('name')=='OrcaSlicer':root.remove(item)
-        elif item.get('name')=='Application':item.text='BambuStudio-'+BAMBU['version']
-    ET.SubElement(root,NS+'metadata',name='SkeleCAD:Preparation').text='Native Bambu presets; awaiting Bambu CLI export'
-    payload['3D/3dmodel.model']=ET.tostring(root,encoding='utf-8',xml_declaration=True)
-    payload['Metadata/project_settings.config']=json.dumps(settings,indent=2).encode()
-    out=ROOT/'build/print_ready'/f'bambu_{rev}'/'input';out.mkdir(parents=True,exist_ok=True)
-    target=out/f'{job}.3mf'
-    with zipfile.ZipFile(target,'w',zipfile.ZIP_DEFLATED) as z:
-        for n,data in payload.items():z.writestr(n,data)
-    report={'source_project':model_audit,'preset_files':PRESET_FILES,'slicer':BAMBU,'geometry_changed':False,'native_settings':settings}
-    target.with_suffix('.json').write_text(json.dumps(report,indent=2),encoding='utf-8')
-    print(target)
-if __name__=='__main__':main()

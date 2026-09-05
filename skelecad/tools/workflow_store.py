@@ -123,22 +123,9 @@ class WorkflowStore:
         from workflow_background import BackgroundWork
         self.background = BackgroundWork(self)
         if launch:
-            self._recover_legacy_partition_failures()
             self.thread = threading.Thread(target=self._pump, daemon=True)
             self.thread.start()
             self.background.start()
-
-    def _recover_legacy_partition_failures(self):
-        legacy_message='生成処理が終了しましたが、結果を確認できません。'
-        for directory in self.root.iterdir():
-            if not JOB_ID.fullmatch(directory.name):continue
-            try:state=json.loads((directory/'state.json').read_text(encoding='utf-8'))
-            except (OSError,ValueError,TypeError):continue
-            if (state.get('stage')=='failed' and state.get('operation')=='partition' and state.get('message')==legacy_message
-                    and isinstance(state.get('selected_markers'),list) and state.get('source_manifest_sha256')):
-                state.update(stage='queued',message='旧バージョンで中断した色分けを、同じマーカーで自動復旧します。',worker_attempt=0,updated_at=now())
-                for key in ('pid','process_identity','error'):state.pop(key,None)
-                write_json(directory/'state.json',state)
 
     def directory(self, job_id):
         if not JOB_ID.fullmatch(job_id):
@@ -312,8 +299,7 @@ class WorkflowStore:
                 prepared_project=(release.get('artifact_kind')=='bambu_project' and release.get('ready_to_open') is True
                                   and release.get('project_verified') is True and release.get('slicing_verified') is False
                                   and release.get('ready_to_print') is False)
-                sliced_release=release.get('ready_to_print') is True and release.get('slicing_verified') is True
-                if (not (prepared_project or sliced_release)
+                if (not prepared_project
                         or release.get('verification_run') is not False
                         or release.get('manifest_sha256')!=digest or state.get('manifest_sha256')!=digest):
                     raise KeyError('Stale print')
@@ -417,7 +403,7 @@ class WorkflowStore:
                 if not isinstance(center,list) or len(center)!=3 or not all(isinstance(v,(int,float)) and abs(v)<=10000 for v in center):raise ValueError('分割マーカー位置が不正です。')
                 if not isinstance(radius,(int,float)) or not minimum_radius<=radius<=maximum_radius:raise ValueError(f'分割マーカー範囲は{minimum_radius:g}〜{maximum_radius:g} mmにしてください。')
                 placement=marker.get('placement_method')
-                if placement not in (None,'ray_solid_midpoint','ray_solid_midpoint_v2','midline_plane_snap_v1','symmetry_mirror_x_v1'):raise ValueError('分割マーカーの配置方法が不正です。')
+                if placement not in (None,'ray_solid_midpoint_v2','midline_plane_snap_v1','symmetry_mirror_x_v1'):raise ValueError('分割マーカーの配置方法が不正です。')
                 pair_id=marker.get('symmetry_pair_id')
                 if pair_id is not None and (not isinstance(pair_id,str) or not re.fullmatch(r'pair_[0-9a-z]{2,40}',pair_id)):raise ValueError('左右対称マーカーの対応情報が不正です。')
                 record={'name':name,'center':[float(v) for v in center],'radius_mm':float(radius),'source':'user' if name.startswith('user_') else 'automatic','status':'user_selected'}
@@ -443,14 +429,17 @@ class WorkflowStore:
     def request_symmetry(self,job_id,manifest_sha256,source_side):
         with self.lock:
             state=self.read(job_id)
-            if state['stage'] not in ('appearance_ready','partition_failed','symmetry_failed') or state.get('mechanical_revision'):
+            if state['stage'] not in ('appearance_ready','partition_failed','symmetry_failed','mechanical_review','machining_failed','print_ready','print_failed'):
                 raise ValueError('分割・ジョイント加工の前に左右対称化してください。')
             if source_side not in ('negative_x','positive_x'):
                 raise ValueError('基準にする側を選んでください。')
             directory=self.directory(job_id);manifest_path=directory/'manifest.json'
-            if (state.get('manifest_sha256')!=manifest_sha256 or
-                    hashlib.sha256(manifest_path.read_bytes()).hexdigest()!=manifest_sha256):
+            if state.get('manifest_sha256')!=manifest_sha256:
                 raise ValueError('表示モデルが更新されています。再表示してから左右対称化してください。')
+            from workflow_symmetry_states import save,restore
+            save(directory,state)
+            if restore(directory,source_side) is not None:return self.public(job_id)
+            manifest_sha256=hashlib.sha256(manifest_path.read_bytes()).hexdigest()
             state.update(operation='symmetry',symmetry_source_side=source_side,
                          source_manifest_sha256=manifest_sha256,stage='queued',
                          message='左右対称化待ち',worker_attempt=0,updated_at=now())
@@ -462,9 +451,12 @@ class WorkflowStore:
         with self.lock:
             state=self.read(job_id)
             symmetry=state.get('appearance_symmetry') or {}
-            if state['stage'] not in ('appearance_ready','partition_failed','symmetry_failed') or not symmetry.get('active'):
+            if state['stage'] not in ('appearance_ready','partition_failed','symmetry_failed','mechanical_review','machining_failed','print_ready','print_failed') or not symmetry.get('active'):
                 raise ValueError('元に戻せる左右対称化がありません。')
             directory=self.directory(job_id);original=directory/'symmetry'/'original'
+            from workflow_symmetry_states import save,restore
+            save(directory,state)
+            if restore(directory,'original') is not None:return self.public(job_id)
             try:
                 record=json.loads((original/'record.json').read_text(encoding='utf-8'))
                 source_appearance=original/'appearance.stl';source_manifest=original/'manifest.json'

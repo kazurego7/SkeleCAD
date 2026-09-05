@@ -55,8 +55,8 @@ def run(snapshot):
         status=json.loads((directory/'status.json').read_text(encoding='utf-8'))
         status['manifest_sha256']=digest(directory/'manifest.json');write_json(directory/'status.json',status)
         report(stage='mechanical_ready',revision=directory.name,manifest_sha256=digest(directory/'manifest.json'))
-        from prepare_workflow_project import run as slice_print
-        slice_print(directory,verification_run=True)
+        from prepare_workflow_project import run as prepare_print
+        prepare_print(directory,verification_run=True)
         if not current():report(stage='superseded');return
         report(stage='ready',revision=directory.name,manifest_sha256=digest(directory/'manifest.json'))
     except Exception as exc:

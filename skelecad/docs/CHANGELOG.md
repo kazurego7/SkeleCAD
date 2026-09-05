@@ -1,5 +1,15 @@
 # Changelog
 
+## 起動環境の整理（2026-09-05）
+
+- ルートの `start.ps1` で、Python環境・依存・Hunyuan形状ソースとモデルの準備から起動まで実行。
+- FreeCADの標準インストール先を検索し、非公開の `toolchain.local.json` で個別のアプリ配置に対応。
+- OrcaSlicerの設定・環境検査・旧専用印刷経路を削除。現行処理が使う3MF検査は `print_package_audit.py` に分離。
+- CPU環境の未使用8パッケージを削除。Hunyuan上流が読み込む推論側依存は維持。
+- 外部依存の利用条件をREADMEと起動時に明記。独自コードのMITを取得物に適用するものではない。
+- 形状・印刷方向・寸法・材料の変更なし。
+
+
 ## 2026-09-05 - Mirror-symmetric workflow socket slits
 
 - Orient C4 socket slits using the symmetry plane normal projected into the
@@ -975,3 +985,21 @@
   from 0.35 to 0.45 mm for easier removal at 0.12 mm layer height.
 - Retained two top interface layers and automatic tree support; the native Bambu
   project audit now verifies the release gaps as well as actual support G-code.
+
+## 過去データへの依存の解消
+
+- プリント準備は空のBambuプロジェクトから生成。過去の3MFテンプレートは不要。
+- 旧モデルの固定リスト・配信経路、旧マーカーの読み替え、旧エラーの自動復旧を削除。
+- 現行の未スライス形式だけを採用。スライスはBambu Studioで実行。
+- ビュワーの検証用データはテスト内で生成し、過去の出力ファイルに依存しない。
+
+## FreeCADの手動インストールを不要化
+
+- 初回起動時に公式FreeCAD 1.1.3ポータブル版と展開ツールを自動取得。両方のSHA-256を照合し、展開先でモジュール読み込みと形状計算を検証してから配置。
+- FreeCADのGUIは起動せず、従来と同じPython APIで加工。取得済み環境は再利用。
+- READMEの事前インストール一覧はBambu Studioのみに変更。
+
+### Symmetry-specific editing states
+
+- Keep independent original/left/right partition, joint and print-preparation states; switching back restores the latest saved state without reprocessing.
+- Scope motion snapshots and retained joint poses to the same symmetry choice.

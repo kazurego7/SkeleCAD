@@ -328,12 +328,6 @@ class WorkflowTests(unittest.TestCase):
         with patch('workflow_store.WORKSPACE',directory),patch('workflow_store.subprocess.Popen',return_value=Running()):self.store._tick()
         current=self.store.read(job['id']);self.assertEqual(current['stage'],'starting');self.assertNotIn('error',current)
 
-    def test_legacy_generic_partition_failure_is_recovered_on_startup_audit(self):
-        job=self.store.create(image_bytes());directory=self.store.directory(job['id']);state=self.store.read(job['id'])
-        state.update(operation='partition',stage='failed',message='生成処理が終了しましたが、結果を確認できません。',selected_markers=[{'name':'user_ab12'}],source_manifest_sha256='hash',pid=123,error='old')
-        write_json(directory/'state.json',state);self.store._recover_legacy_partition_failures();recovered=self.store.read(job['id'])
-        self.assertEqual(recovered['stage'],'queued');self.assertEqual(recovered['worker_attempt'],0);self.assertNotIn('pid',recovered);self.assertNotIn('error',recovered)
-
     def test_machined_job_can_restore_immutable_partition_preview(self):
         job=self.store.create(image_bytes());directory=self.store.directory(job['id'])
         manifest={'stage':'partition_preview','parts':[{'name':'part_00'},{'name':'part_01'}],

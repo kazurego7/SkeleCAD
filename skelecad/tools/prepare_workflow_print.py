@@ -1,7 +1,7 @@
 """Native Bambu projects from arbitrary validated part manifests (no GUI).
 
-This creates un-sliced input plates. A print worker must separately verify
-geometry-bound review, run Bambu and audit its sliced output before release.
+This creates editable, unsliced plates. Geometry-bound review is verified
+before release; users slice and inspect supports in Bambu Studio.
 """
 import argparse
 import copy
@@ -13,10 +13,11 @@ import zipfile
 from pathlib import Path
 from xml.etree import ElementTree as ET
 import numpy as np
-from prepare_bambu_print import native_settings,BAMBU,PARAMS,ROOT
-from prepare_palm_print import set_meta
-from audit_orca_print import NS,PNS,arrays,metadata
+from bambu_settings import native_settings,BAMBU,PARAMS,ROOT
+from print_package_audit import set_meta
+from print_package_audit import NS,PNS,arrays,metadata
 from machine_image_job import load,write,sha
+from bambu_project_schema import empty_project
 
 
 def orient(mesh):
@@ -34,7 +35,7 @@ def orient(mesh):
 def pack(objects,cfg):
     """Deterministic multi-plate shelves, model extents exclude support/brims.
 
-    Sliced extrusion bounds are audited again because supports can exceed them.
+    Supports can exceed these extents; inspect the slice in Bambu Studio.
     """
     margin=cfg['plate_margin_mm'];gap=cfg['object_gap_mm'];side=cfg['plate_width_mm']
     plates=[[]];x=y=margin;depth=0
@@ -69,14 +70,7 @@ def package(directory):
         R=orient(mesh);offset=mesh.bounds.mean(0);v=(mesh.vertices-offset)@R
         objects.append(dict(spec=spec,mesh=mesh,R=R,offset=offset,lo=v.min(0),hi=v.max(0)))
     settings=native_settings();plates=pack(objects,PARAMS['printing']['production_profile'])
-    template=ROOT/'build/print_ready/bambu_1.3.0/input/fit_kit.3mf'
-    with zipfile.ZipFile(template) as z:
-        original_root=ET.fromstring(z.read('3D/3dmodel.model'));original_md=ET.fromstring(z.read('Metadata/model_settings.config'))
-        original_obj=original_root.find(NS+'resources/'+NS+'object')
-        original_item=original_root.find(NS+'build/'+NS+'item');original_objmd=original_md.find('object')
-        node_path=original_obj.find(NS+'components/'+NS+'component').get(PNS+'path').lstrip('/')
-        original_node=ET.fromstring(z.read(node_path))
-        base_payload={n:z.read(n) for n in ('[Content_Types].xml','_rels/.rels')}
+    original_root,original_obj,original_item,original_objmd,original_node,base_payload=empty_project()
     output=directory/'print';output.mkdir(exist_ok=True);reports=[]
     for pi,objects in enumerate(plates,1):
         folder=output/f'plate_{pi:02d}';folder.mkdir(exist_ok=True)

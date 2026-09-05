@@ -32,7 +32,6 @@ canvas:focus-visible { outline-offset:-2px; }
 .snapshotCard.dragging { opacity:.45; }
 .snapshotCard.dragTarget { box-shadow:inset 0 3px 0 #e5c68d; }
 .snapshotCard[aria-current="true"] { border-color:#e5c68d;box-shadow:0 0 0 1px #e5c68d33; }
-.snapshotCard[data-default="true"] { border:2px solid #78a9c4;background:linear-gradient(145deg,#2c343b,#252a2f);box-shadow:inset 0 0 0 2px #78a9c426,0 0 0 1px #78a9c426; }
 .snapshotRestore { display:block;width:100%;height:auto;padding:0;border:0;border-radius:0;background:transparent;text-align:left; }
 .snapshotRestore img,.snapshotPlaceholder { display:grid;width:100%;height:auto;aspect-ratio:4/3;object-fit:contain;place-items:center;background:radial-gradient(circle,#55585d,#292b2f 70%);user-select:none;-webkit-user-drag:none; }
 .snapshotDelete { position:absolute;z-index:1;right:6px;top:6px;width:27px;height:27px;border:1px solid #ffffff24;background:#202225d9;color:#ddd;font-size:17px;box-shadow:0 1px 5px #0008; }
@@ -176,3 +175,34 @@ html:not([data-workflow-step="2"]) #partitionMarkers { display:none!important; }
 #workflowBar button:not([data-current="true"]),#workflowBar #step4:not([data-current="true"]) { background-image:linear-gradient(180deg,#ffffff12,transparent 60%,#00000018);box-shadow:inset 0 1px 0 #ffffff38,inset 0 -3px 1px #0006; }
 #workflowBar button[data-current="true"],#workflowBar #step2[data-current="true"],#workflowBar #step4[data-current="true"] { background-image:linear-gradient(180deg,#00000028,transparent);box-shadow:inset 0 4px 7px #0009,inset 0 -1px 0 #ffffff2e; }
 #workflowBar button:focus-visible { outline:none;outline-offset:-4px;outline:2px solid #e0f4ff; }
+
+#workflowTools { position:fixed;z-index:5;top:151px;left:max(20px,calc(50% - 325px));display:flex;gap:8px; }
+#workflowTools .textButton { display:flex;align-items:center;gap:6px;height:32px;padding:0 11px;background:#252a2fe8;color:#dfe9ee;border-color:#7393a34d;box-shadow:0 2px 6px #0004; }
+#workflowTools .textButton:hover { background:#3a4c56;border-color:#8db7cf; }
+.controls .modelPicker { background:linear-gradient(180deg,#356b86,#285269);border-color:#79b5d1;color:#f1faff;box-shadow:0 2px 7px #0005,inset 0 1px 0 #ffffff20; }
+.controls .modelPicker:hover { background:linear-gradient(180deg,#4688a8,#326b87);border-color:#b5e4f8; }
+html:has(#workflowHint[data-error="true"]) #workflowTools { top:183px; }
+@media(max-width:650px) { #workflowTools { top:188px;left:12px; } html:has(#workflowHint[data-error="true"]) #workflowTools { top:218px; } }
+
+.symmetryDialog { width:min(620px,calc(100vw - 32px));max-width:calc(100vw - 32px);max-height:calc(100dvh - 40px);overflow:auto;padding:22px;border:1px solid #758b995e;border-radius:16px;background:#252b30;color:#eef3f5;box-shadow:0 24px 80px #0009; }
+.symmetryDialog::backdrop { background:#080d12a6;backdrop-filter:blur(5px); }
+.symmetryHeader { display:flex;align-items:center;justify-content:space-between;gap:16px; }
+.symmetryHeader h2 { margin:0;font-size:18px; }
+.symmetryDialog>p { margin:10px 0 20px;color:#b8c6ce;font-size:12px; }
+.symmetryCards { display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px; }
+.symmetryCard { position:relative;display:flex;flex-direction:column;align-items:center;gap:10px;width:100%;height:auto;min-height:178px;padding:18px 10px;border:1px solid #6c7d895e;border-radius:12px;background:#303940;color:#e8f0f3;line-height:1.4;box-shadow:0 3px 5px #0003,inset 0 1px 0 #ffffff12; }
+.symmetryCard svg { width:100%;max-width:132px;height:76px; }
+.symmetryCard .shape { fill:#8a9faa;stroke:#c4d4dc;stroke-width:1.5; }
+.symmetryCard .kept { fill:#73c6e6;stroke:#b3e8fb; }
+.symmetryCard .mirrored { fill:#73c6e633;stroke:#73c6e6;stroke-dasharray:4 3; }
+.symmetryCard .axis { fill:none;stroke:#dee8ed88;stroke-dasharray:3 4; }
+.symmetryCard strong { font-size:14px;font-weight:600; }
+.symmetryCard span { font-size:11px;color:#b6c6ce; }
+.symmetryCard[aria-pressed="true"] { border-color:#8dd9f5;background:#284b5e;box-shadow:inset 0 3px 8px #0005,0 0 0 1px #8dd9f566; }
+.symmetryCard[aria-pressed="true"]::after { content:'✓';position:absolute;top:8px;right:10px;color:#a5e9ff;font-size:15px; }
+.symmetryCard:hover:not(:disabled) { border-color:#a5d9eb;background:#3a505d; }
+.symmetryCard:disabled { cursor:wait;opacity:.65; }
+.symmetryFooter { display:flex;justify-content:flex-end;margin-top:22px; }
+.symmetryFooter .textButton { min-width:96px;height:36px;background:#367c9c;border-color:#85bdd4;color:#fff; }
+#symmetryStatus { color:#ffb7b1; }
+@media(max-width:480px) { .symmetryDialog { padding:16px; }.symmetryCards { gap:7px; }.symmetryCard { padding:15px 5px;min-height:155px;gap:8px; }.symmetryCard strong { font-size:12px; }.symmetryCard span { font-size:10px; } }

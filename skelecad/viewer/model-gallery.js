@@ -74,7 +74,7 @@ function createModelGallery(){
   list.addEventListener('click',async event=>{
     const remove=event.target.closest?.('.modelCardTrash');
     if(remove){remove.disabled=true;showError();try{const value='job:'+remove.dataset.id,wasSelected=select.value===value;await mutate('jobs/'+remove.dataset.id+'/trash');removeOption(value);
-        if(wasSelected){const fallback=Array.from(select.options)[0];if(fallback){select.value=fallback.value;select.dispatchEvent(new Event('change',{bubbles:true}));}}renderMain();}
+        if(wasSelected){select.value=Array.from(select.options)[0]?.value||'';select.dispatchEvent(new Event('change',{bubbles:true}));}renderMain();}
       catch(error){showError(error.message);remove.disabled=false;}return;}
     const restore=event.target.closest?.('.modelCardRestore');
     if(restore){restore.disabled=true;showError();try{const job=await mutate('trash/'+restore.dataset.id+'/restore');trashed=trashed.filter(item=>item.id!==job.id);window.SkeleCADWorkflow?.restoreJob?.(job);renderTrash();}

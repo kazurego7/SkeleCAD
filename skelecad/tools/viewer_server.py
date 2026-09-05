@@ -10,21 +10,10 @@ from pathlib import Path
 from urllib.parse import unquote, urlsplit
 
 PROJECT = Path(__file__).resolve().parents[1]
-PARTS = ('head', 'torso', 'arm_left', 'arm_right', 'leg_left', 'leg_right', 'foot_left', 'foot_right', 'tail')
 FILES = {'viewer/index.html', 'viewer/app.js', 'viewer/style.css', 'config/parameters.json',
-         'viewer/workflow-ui.js', 'viewer/partition-ui.js',
-         'viewer/motion-core.js', 'viewer/motion-ui.js', 'viewer/model-gallery.js', 'viewer/pose-snapshots.js', 'viewer/collision-worker.js', 'viewer/mesh-worker.js', 'viewer/mesh-cache.js',
-         'build/hybrid/trex_hybrid_assembly.stl', 'build/hybrid/print/trex_hybrid_full_print_plate.stl',
-         'build/generated_appearance/trex_appearance_200mm_outward.stl'}
-FILES.update(f'build/hybrid/{folder}/{part}.stl' for folder in ('parts', 'raw_split') for part in PARTS)
-FILES.update(f'build/parts/{name}.stl' for name in ('ball_connector_v2', 'joint_calibration_v2', 'ball_test_key_v2'))
-FILES.add('build/generated_appearance/20260830_dfba1098/trex_new_200mm.stl')
-FILES.update(f'build/hybrid_20260830/parts/{part}.stl' for part in PARTS)
-FILES.update(('build/hybrid_20260830/trex_hybrid_assembly.stl',
-              'build/hybrid_20260830/print/trex_hybrid_full_print_plate.stl'))
-FILES.update(f'build/palm_120/parts/{part}.stl' for part in PARTS)
-FILES.update(('build/palm_120/trex_hybrid_assembly.stl', 'build/palm_120/sizing.json'))
-FILES.add('build/preview/hybrid_assembly.png')
+         'viewer/workflow-ui.js', 'viewer/partition-ui.js', 'viewer/motion-core.js', 'viewer/motion-ui.js',
+         'viewer/model-gallery.js', 'viewer/pose-snapshots.js', 'viewer/collision-worker.js',
+         'viewer/mesh-worker.js', 'viewer/mesh-cache.js'}
 
 
 class ViewerHandler(BaseHTTPRequestHandler):

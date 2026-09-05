@@ -79,8 +79,8 @@ if ($LASTEXITCODE -ne 0) { throw "Hybrid actual-part motion validation failed: $
 & $python (Join-Path $project "src\freecad_hybrid_documents.py")
 if ($LASTEXITCODE -ne 0) { throw "Hybrid FreeCAD/3MF packaging failed: $LASTEXITCODE" }
 if ($buildParameters.hybrid_new) {
-    & $python (Join-Path $project "tools\package_orca_review.py")
-    if ($LASTEXITCODE -ne 0) { throw "Named OrcaSlicer part packaging failed: $LASTEXITCODE" }
+    & $python (Join-Path $project "tools\package_parts_review.py")
+    if ($LASTEXITCODE -ne 0) { throw "Named 3MF part packaging failed: $LASTEXITCODE" }
 }
 
 Write-Host "[5/13] Validating STL topology"

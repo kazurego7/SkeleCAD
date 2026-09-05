@@ -39,45 +39,53 @@ FreeCADを要するテスト、既存`build/`の全配信素材を要求する
 ソースのみの検証には含めません。製作環境では
 `node --test skelecad/viewer/tests/*.test.cjs`でビュワーの全8ファイルを実行できます。
 
-## 製作環境
+## 通常の起動：1コマンド
 
-本番の起動・ビルドはWindows上の次の配置を前提にしています。
-ツールは別途取得し、`config/toolchain.json`の版と整合させてください。
+Windows x64で次のアプリを事前にインストールしてください。
 
-| リポジトリルートからの位置 | 内容 |
-| --- | --- |
-| `.tools/freecad-1.1.3/bin/` | FreeCAD 1.1.3と同梱Python、FreeCAD同梱ライブラリ |
-| `.tools/blender-5.2.1-windows-x64/` | Blender 5.2.1 LTSのプレビュー生成環境 |
-| `.tools/orcaslicer-2.4.2/` | OrcaSlicer 2.4.2 |
-| `.tools/downloads/` | toolchain.jsonでハッシュ検査するOrcaSlicerアーカイブ |
-| `.tools/hunyuan3d-2.1-modern-venv/` | Python 3.14.7、PyTorch 2.14/CUDA 13.2、更新済み推論依存 |
-| `.tools/python-runtime-3.14/` | Python 3.14.7と`requirements-workflow.lock`のCPU依存 |
-| `.tools/gmsh-4.15.2/` | Gmsh 4.15.2 |
-| `.tools/calculix-2.23/` | CalculiX 2.23（ccx_static.exe） |
-| `.tools/Hunyuan3D-2.1/` | Hunyuan3D 2.1ソース（`hy3dshape/`を含む） |
-| `.tools/cache/huggingface/` | モデルキャッシュ |
+- Bambu Studio（検証版02.08.02.61、A1 miniプリセットを使用）
+- NVIDIA GPUドライバー（CUDA 13.2対応が必要）
+- Microsoft Edge（Windows標準）
 
-Bambu Studioの既定位置は`C:/Program Files/Bambu Studio/`です。
-実行ファイルとライブラリのハッシュ、プリセット名も`config/toolchain.json`に記録しています。
-画像からの推論にはCUDA対応GPUと`tencent/Hunyuan3D-2.1`のモデルが必要です。
-`requirements-test.txt`だけでは画像推論環境は完成しません。
-CPU環境は更新済みのuvで、ルートから次のコマンドで再現できます。
+リポジトリを取得・展開したフォルダで実行します。
 
 ```powershell
-uv venv .tools/python-runtime-3.14 --python 3.14.7
-uv pip sync --python .tools/python-runtime-3.14/Scripts/python.exe skelecad/requirements-workflow.lock
+powershell -ExecutionPolicy Bypass -File .\start.ps1
 ```
 
-推論環境は[Hunyuan更新記録](HUNYUAN_UPDATE.md)の手順で再現できます。対応GPUドライバーと各外部アプリは別途導入してください。[更新記録](DEPENDENCY_UPDATE.md)に取得元を記載しています。
+FreeCAD、uv、Python、CPU処理とCUDA推論のライブラリ、Hunyuanの形状生成ソースとモデルを自動で準備します。テクスチャ用のモデルは取得しません。管理者権限やPython・Git・uvの事前インストールは不要です。初回はネット接続・ダウンロード用の時間と空き容量が必要です。中断した場合は同じコマンドを再実行してください。
 
-環境を用意したら、ルートで次を実行します。
+次回からは取得済み環境を再利用し、固定された依存との差分だけを同期します。Hunyuanモデルは既定のユーザーフォルダ`.cache/hy3dgen`、ソースと実行環境はリポジトリの`.tools/`に保存します。
 
-```powershell
-.\skelecad\tools\open_3d_viewer.ps1
+画面を開かず準備だけ行う場合は `-SetupOnly`、サーバーだけ起動する場合は `-NoBrowser` を末尾に付けます。
+
+### アプリのインストール先
+
+FreeCADは`.tools/freecad-1.1.3/`へ自動取得します。Bambu Studioの既定位置は `C:/Program Files/Bambu Studio/` です。
+
+別の場所の場合は、Git管理から除外される `skelecad/config/toolchain.local.json` に必要な項目だけ記入します。
+
+```json
+{
+  "freecad": {
+    "executable": "D:/Apps/FreeCAD/bin/freecad.exe",
+    "python": "D:/Apps/FreeCAD/bin/python.exe"
+  },
+  "bambu_studio": {
+    "executable": "D:/Apps/Bambu Studio/bambu-studio.exe",
+    "library": "D:/Apps/Bambu Studio/BambuStudio.dll",
+    "profiles": "D:/Apps/Bambu Studio/resources/profiles/BBL"
+  }
+}
 ```
 
-入力をアップロードして新規ジョブを作成できます。既存モデルのメニューは
-対応する生成物を置くまで利用できません。
+### 外部依存と開発ツール
+
+取得物にSkeleCADのMITライセンスを付与するものではありません。実行前に [外部依存の利用条件](../../THIRD_PARTY_NOTICES.md) を確認してください。
+[uvの配布元](https://docs.astral.sh/uv/getting-started/installation/)・[Hunyuanの配布元](https://github.com/Tencent-Hunyuan/Hunyuan3D-2.1)
+
+OrcaSlicerは不要です。実行環境とアーカイブ検査、旧Orca専用印刷経路を削除しました。
+Blender・Gmsh・CalculiXは既存CADの画像生成・強度検証で使用している開発ツールです。通常の画像アップロードからプリント準備には不要で、自動取得しません。全ビルドを行う場合だけ `config/toolchain.json` の配置に用意してください。
 
 ## 既存製作モデルの全ビルド
 
@@ -110,3 +118,9 @@ git commit -m "Prepare SkeleCAD source distribution"
 `git remote add origin <URL>`、`git push -u origin main`を実行します。
 この準備作業ではリモートの作成・登録や送信は行いません。
 独自コードとドキュメントの利用条件は、ルートの [MITライセンス](../../LICENSE) を参照してください。
+
+## FreeCADの自動準備
+
+初回起動時に公式FreeCAD 1.1.3ポータブル版を取得し、`.tools/freecad-1.1.3`へ展開します。インストーラー・管理者権限・GUI操作は不要です。公式配布物のSHA-256を照合し、展開したPythonからFreeCAD・Part・Mesh・MeshPartの読み込みとソリッド生成を確認してから配置します。取得済みの実行環境は再利用します。
+
+展開には自動取得した7-Zipのスタンドアロン展開ツールを使用します。FreeCADと展開ツールはGitへ含めません。

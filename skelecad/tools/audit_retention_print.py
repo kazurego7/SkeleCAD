@@ -3,7 +3,7 @@ import hashlib,json,re,zipfile
 from xml.etree import ElementTree as ET
 import numpy as np
 from prepare_retention_print import C,BASE,ROOT,BAMBU
-from audit_orca_print import NS,PNS,arrays,metadata,sliced_audit
+from print_package_audit import NS,PNS,arrays,metadata,sliced_audit
 
 def main(filename='SkeleCAD_Retention_R1_A1mini_PLA_Matte.3mf',expected_count=17,limits=None):
     out=BASE/'print';file=out/filename

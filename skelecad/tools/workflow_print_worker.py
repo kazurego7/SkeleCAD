@@ -14,11 +14,11 @@ def run(directory):
            pid=os.getpid(),process_identity=process_identity(os.getpid()))
     try:
         from audit_workflow_motion import verify_review_pose
-        from prepare_workflow_project import run as slice_print
+        from prepare_workflow_project import run as prepare_print
         folder=directory/'machining'/state['mechanical_revision']
         approval=json.loads((folder/'review_approval.json').read_text(encoding='utf-8'))
         verify_review_pose(folder,approval['pose'])
-        report=slice_print(folder)
+        report=prepare_print(folder)
         downloads=[]
         for plate in report['plates']:
             downloads.append({'plate':plate['plate'],'filename':plate['filename'],'sha256':plate['sha256'],

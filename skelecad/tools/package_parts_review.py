@@ -42,7 +42,7 @@ for number,name in enumerate(names,1):
                     'vertices':len(vertices),'triangles':len(mesh.find(tag('triangles'))),
                     'placement_translation_mm':offset})
     cursor_x+=width+7;row_depth=max(row_depth,depth)
-out=HYBRID/'orca_review'/f"SkeleCAD_{PARAMS['project']['revision']}_9_parts.3mf"
+out=HYBRID/'parts_review'/f"SkeleCAD_{PARAMS['project']['revision']}_9_parts.3mf"
 out.parent.mkdir(parents=True,exist_ok=True)
 with zipfile.ZipFile(out,'w',zipfile.ZIP_DEFLATED) as z:
     z.writestr('[Content_Types].xml','<?xml version="1.0" encoding="UTF-8"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="model" ContentType="application/vnd.ms-package.3dmanufacturing-3dmodel+xml"/></Types>')

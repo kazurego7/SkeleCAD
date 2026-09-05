@@ -4,11 +4,8 @@ $ErrorActionPreference = 'Stop'
 $project = Split-Path -Parent $PSScriptRoot
 $workspace = Split-Path -Parent $project
 $freecad = Get-SkeleCADToolPath 'freecad'
-$assembly = Join-Path $project "build\assembly\SkeleCAD_Assembly.FCStd"
 $parameters = Get-Content -LiteralPath (Join-Path $project 'config/parameters.json') -Raw | ConvertFrom-Json
-if ($parameters.hybrid_new) {
-    $assembly = Join-Path $project "$(Get-SkeleCADModelDirectory $parameters)/SkeleCAD_Hybrid_Assembly.FCStd"
-}
+$assembly = Join-Path $project "$(Get-SkeleCADModelDirectory $parameters)/SkeleCAD_Hybrid_Assembly.FCStd"
 
 if (-not (Test-Path -LiteralPath $assembly)) {
     throw "Assembly has not been generated. Run tools\build.ps1 first."

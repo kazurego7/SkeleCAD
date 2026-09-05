@@ -26,13 +26,6 @@
     "executable": ".tools/calculix-2.23/ccx_static.exe",
     "executable_sha256": "e18360eb32a5cd48f91a212c57069212cd8e27d2f798a599a78106bd0b3ecc1f"
   },
-  "orcaslicer": {
-    "version": "2.4.2",
-    "executable": ".tools/orcaslicer-2.4.2/orca-slicer.exe",
-    "archive": ".tools/downloads/OrcaSlicer_Windows_V2.4.2_x64_portable.zip",
-    "archive_size_bytes": 171367668,
-    "archive_sha256": "feba3009dfb9d268779cca5758a1a5bc3b7d0722bf8fa48d5c57340de975d6be"
-  },
   "workflow_python": {
     "version": "3.14.7",
     "executable": ".tools/python-runtime-3.14/Scripts/python.exe"

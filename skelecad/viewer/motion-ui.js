@@ -1,7 +1,6 @@
 'use strict';
 function createArticulation(api){
   const C=SkeleMotion,canvas=api.canvas,result=document.getElementById('collisionResult'),status=document.getElementById('status'),selectionInfo=document.getElementById('selectionInfo'),twistGuide=document.getElementById('twistGuide');
-  const definitions=[['neck','head'],['shoulder_left','arm_left'],['shoulder_right','arm_right'],['hip_left','leg_left'],['hip_right','leg_right'],['ankle_left','foot_left'],['ankle_right','foot_right'],['tail_root','tail']];
   const labels=Object.fromEntries(api.parts.map(p=>[p.name,p.label]));
   let joints=[],angles={},displayPose={},matrices={},selected='',selectedPart='',worker=null,ready=false,active=false,failed=false,token=0,sequence=0;
   let inFlight=null,queued=null,dragging=false,twisting=false,marks=new Float32Array(),marksVersion=0,updates=0;
@@ -53,8 +52,7 @@ function createArticulation(api){
     return {selected,entries:Object.fromEntries(joints.map(j=>[j.name,{signature:signature(j),angles:(displayPose[j.name]||[0,0,0]).slice()}]))};
   }
   async function load(path,items,manifest=null,handoff=null){
-    clear();if(!manifest&&!['../build/hybrid_20260830/trex_hybrid_assembly.stl','../build/palm_120/trex_hybrid_assembly.stl'].includes(path))return;
-    if(manifest&&!manifest.joints?.length)return;
+    clear();if(!manifest?.joints?.length)return;
     const current=token;
     const fail=()=>{
       if(current!==token)return;ready=false;failed=true;worker?.terminate();worker=null;inFlight=null;queued=null;clearMarks();
@@ -65,23 +63,11 @@ function createArticulation(api){
       const ballDiameter=parameters.joint?.ball_diameter_mm,contactPadding=parameters.printing?.clearance_linear_deflection_mm;
       if(!Number.isFinite(ballDiameter)||ballDiameter<=0||!Number.isFinite(contactPadding)||contactPadding<0)throw new Error('関節寸法が不正です');
       const intentionalContactRadius=ballDiameter/2+contactPadding;
-      if(manifest){
+      {
         joints=C.manifestJoints(manifest);previewOnly=manifest.preview_only===true;
         if(items.length!==manifest.parts.length||items.some(item=>!manifest.parts.some(p=>p.name===item.part?.name)))throw new Error('パーツと関節情報が一致しません');
         for(const p of manifest.parts)labels[p.name]=p.label||p.name;
         const first=joints.find(j=>j.motion_ready!==false)||joints[0];selected=first.name;selectedPart=first.part;
-      }else{
-      const palm=path.startsWith('../build/palm_120/');
-      let config=parameters;
-      if(palm){const response=await fetch('../build/palm_120/sizing.json',{cache:'no-store'});if(!response.ok)throw new Error('関節設定を読み込めません');config=await response.json();if(current!==token)return;}
-      const h=palm?config.effective_hybrid_parameters:config.hybrid_new;
-      if(!h||!Array.isArray(h.connections))throw new Error('関節情報が見つかりません');
-      joints=definitions.map(([name,part])=>{
-        const spec=h.connections.find(s=>s.name===name),center=spec&&h[spec.center_key];
-        if(!Array.isArray(center)||center.length!==3||!center.every(Number.isFinite)||!Array.isArray(spec.mouth_direction)||spec.mouth_direction.length!==3||!spec.mouth_direction.every(Number.isFinite)||Math.hypot(...spec.mouth_direction)<.9)throw new Error('関節位置が不正です');
-        return {name,part,center,axes:C.jointAxes(spec.mouth_direction),parent:part.startsWith('foot_')?part.replace('foot_','leg_'):'torso'};
-      });
-      selected='hip_right';selectedPart='leg_right';
       }
       const byPart=new Map(joints.map(j=>[j.part,j]));
       const signature=j=>JSON.stringify([j.name,j.center,j.axes,byPart.has(j.parent)?signature(byPart.get(j.parent)):null]);

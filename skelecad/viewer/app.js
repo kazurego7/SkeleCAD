@@ -24,29 +24,9 @@ function trimRenderCache(){
     renderCache.delete(oldKey);renderCacheBytes-=entry.bytes;entry.mesh.cached=false;disposeMesh(entry.mesh);
   }
 }
-const PARTS=[
-  {name:'head',label:'頭',color:'#f1b85b'},
-  {name:'torso',label:'胴体',color:'#b7c1ce'},
-  {name:'arm_left',label:'左腕',color:'#f27578'},
-  {name:'arm_right',label:'右腕',color:'#aa88ec'},
-  {name:'leg_left',label:'左脚',color:'#51bbd0'},
-  {name:'leg_right',label:'右脚',color:'#7894ee'},
-  {name:'foot_left',label:'左足先',color:'#91c85b'},
-  {name:'foot_right',label:'右足先',color:'#e2a1d3'},
-  {name:'tail',label:'しっぽ',color:'#d18a50'},
-];
-const PART_ROOTS=['../build/palm_120','../build/hybrid_20260830','../build/hybrid'];
 const VS='attribute vec3 aPosition;attribute vec3 aNormal;uniform mat4 uMVP;uniform mat4 uModel;uniform float uPointSize;varying float light;void main(){vec3 n=normalize((uModel*vec4(aNormal,0.)).xyz);light=.30+.53*max(dot(n,normalize(vec3(-.35,-.70,.90))),0.)+.20*max(dot(n,normalize(vec3(.75,-.15,.35))),0.);gl_Position=uMVP*vec4(aPosition,1.);gl_PointSize=uPointSize;}';
 const FS='precision mediump float;uniform vec3 uColor;uniform float uOpacity;uniform float uOverlay;varying float light;void main(){if(uOverlay>.5){if(length(gl_PointCoord-vec2(.5))>.5)discard;gl_FragColor=vec4(uColor,1.);}else gl_FragColor=vec4(uColor*light,uOpacity);}';
 function colorRGB(hex){return [1,3,5].map(i=>parseInt(hex.slice(i,i+2),16)/255);}
-function modelSources(path){
-  for(const root of PART_ROOTS){
-    if(path===root+'/trex_hybrid_assembly.stl')return PARTS.map(part=>({path:root+'/parts/'+part.name+'.stl',part}));
-    const part=PARTS.find(part=>path===root+'/parts/'+part.name+'.stl');
-    if(part)return [{path,part}];
-  }
-  return [{path,part:null}];
-}
 function combineParts(items){
   const length=items.reduce((sum,item)=>sum+item.mesh.positions.length,0);
   const positions=new Float32Array(length),normals=new Float32Array(length),low=[Infinity,Infinity,Infinity],high=[-Infinity,-Infinity,-Infinity],groups=[];
@@ -240,14 +220,15 @@ function render(){
 }
 const motionContinuity=new Map();
 async function loadModel(path){
+  if(!path){++loadId;releaseMesh();updatePartState();canvas.dataset.model='';canvas.dataset.loaded='false';status.hidden=true;requestRender();return;}
   const started=performance.now(),id=++loadId,preserveView=canvas.dataset.model===path&&Boolean(mesh),previousMesh=mesh,preserveMesh=preserveView&&Boolean(previousMesh);
   status.hidden=true;
   const loadingTimer=setTimeout(()=>{if(id===loadId){status.hidden=false;status.textContent='モデルを読み込み中…';}},150);
   if(!preserveMesh){canvas.dataset.loaded='false';releaseMesh();updatePartState();requestRender();canvas.dataset.model='';}
   const selected=Array.from(modelSelect.options).find(item=>item.value===path);
-  modelSelect.title=selected?.dataset.description||'旧モデルの部品／校正用モデル';
+  modelSelect.title=selected?.dataset.description||'生成したモデル';
   try{
-    let manifest=null,sources=modelSources(path);
+    let manifest=null,sources=[{path,part:null}];
     if(path.startsWith('job:')){
       manifest=await window.SkeleCADWorkflow.manifest(path.slice(4),()=>id===loadId);
       if(id!==loadId)return;
@@ -275,15 +256,18 @@ async function loadModel(path){
       }
       rememberRender(key,next,items);
     }
+    const stateKey=path.startsWith('job:')?(window.SkeleCADWorkflow?.stateKey?.(path.slice(4))||path):path;
     const previousPose=motion?.continuity?.();
     if(previousPose&&canvas.dataset.model){
-      motionContinuity.delete(canvas.dataset.model);motionContinuity.set(canvas.dataset.model,previousPose);
+      const previousKey=canvas.dataset.stateKey||canvas.dataset.model;
+      motionContinuity.delete(previousKey);motionContinuity.set(previousKey,previousPose);
       if(motionContinuity.size>12)motionContinuity.delete(motionContinuity.keys().next().value);
     }
     if(preserveMesh)disposeMesh(previousMesh);
     mesh=next;trimRenderCache();updatePartState();if(preserveView)requestRender();else resetView();window.SkelePartition?.modelLoaded();window.SkeleCADWorkflow?.modelLoaded?.();status.hidden=true;canvas.dataset.loaded='true';canvas.dataset.model=path;
     canvas.dataset.partHashes=JSON.stringify(items.map(item=>({part:item.part?.name||'single',sha256:item.sha256})));
-    motion?.load(path,items,manifest,{parameters:preparedParameters,continuity:motionContinuity.get(path)});
+    canvas.dataset.stateKey=stateKey;
+    motion?.load(path,items,manifest,{parameters:preparedParameters,continuity:motionContinuity.get(stateKey)});
     snapshots?.sync();
     canvas.dataset.loadMilliseconds=(performance.now()-started).toFixed(1);
     canvas.dataset.renderCacheHit=String(Boolean(cached));canvas.dataset.renderCacheBytes=String(renderCacheBytes);
@@ -343,23 +327,22 @@ canvas.addEventListener('wheel',e=>{
   e.preventDefault();zoom(Math.exp(e.deltaY*.001));
 },{passive:false});
 window.addEventListener('resize',requestRender);
-document.getElementById('resetView').addEventListener('click',resetView);
-modelSelect.addEventListener('change',()=>loadModel(modelSelect.value));
-function selectInitialModel(search){
-  const requested=new URLSearchParams(search).get('model');
-  // Deep links can only select an existing approved model; never fetch a URL from input.
-  const option=Array.from(modelSelect.options).find(item=>item.value===requested);
-  if(option)modelSelect.value=option.value;
+function resetDisplay(){
+  resetView();
+  if(motion?.isActive())motion.restore({joints:motion.joints().map(j=>({...j,angles:[0,0,0]}))});
+  snapshots?.clearSelection();requestRender();
 }
+document.getElementById('resetView').addEventListener('click',resetDisplay);
+modelSelect.addEventListener('change',()=>loadModel(modelSelect.value));
 function start(){
   try{
     if(!gl)throw new Error('このブラウザではWebGLを利用できません');
     program=gl.createProgram();gl.attachShader(program,compile(gl.VERTEX_SHADER,VS));gl.attachShader(program,compile(gl.FRAGMENT_SHADER,FS));gl.linkProgram(program);
     if(!gl.getProgramParameter(program,gl.LINK_STATUS))throw new Error('描画を開始できません');
     gl.useProgram(program);gl.enable(gl.DEPTH_TEST);gl.enable(gl.CULL_FACE);gl.cullFace(gl.BACK);
-    if(typeof createArticulation==='function')motion=createArticulation({canvas,parts:PARTS,mesh:()=>mesh,camera:cameraParameters,normalize,cross,requestRender,onStateChange:()=>snapshots?.sync()});
-    if(typeof createPoseSnapshots==='function')snapshots=createPoseSnapshots({canvas,motion:()=>motion,model:()=>canvas.dataset.model||modelSelect.value,camera:cameraState,setCamera:restoreCamera,resetView,capture:capturePreview,requestRender});
-    selectInitialModel(window.location.search);loadModel(modelSelect.value);
+    if(typeof createArticulation==='function')motion=createArticulation({canvas,parts:[],mesh:()=>mesh,camera:cameraParameters,normalize,cross,requestRender,onStateChange:()=>snapshots?.sync()});
+    if(typeof createPoseSnapshots==='function')snapshots=createPoseSnapshots({canvas,motion:()=>motion,model:()=>canvas.dataset.stateKey||canvas.dataset.model||modelSelect.value,unscopedModel:()=>canvas.dataset.model,camera:cameraState,setCamera:restoreCamera,resetView,capture:capturePreview,requestRender});
+    requestRender();
   }catch(error){status.hidden=false;status.textContent=error.message;}
 }
 window.SkeleViewer={projectWorld,raycastSurface,snapCandidateToMidline,reflectPoint,mirrorCandidate,requestRender,capturePreview};

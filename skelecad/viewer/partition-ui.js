@@ -119,8 +119,7 @@
     const preserve=job?.id===nextJob?.id&&(dirty||saving||awaitingResult);job=nextJob;manifest=nextManifest;
     if(preserve){if(readyToSave())scheduleSave();render();return;}
     const candidates=(nextManifest?.joint_candidates||[]).filter(validCandidate);
-    markers=candidates.map(c=>({name:c.name,center:c.center.slice(),radius_mm:c.radius_mm,source:c.source||'automatic',placement_method:c.placement_method,symmetry_pair_id:c.symmetry_pair_id,isMidline:c.placement_method==='midline_plane_snap_v1',legacySymmetry:c.placement_method==='symmetry_mirror_x_v1'&&!c.symmetry_pair_id,
-      needsDepthSnap:(c.source==='user'&&!['ray_solid_midpoint_v2','symmetry_mirror_x_v1','midline_plane_snap_v1'].includes(c.placement_method)),needsMidlineSnap:c.source==='user'&&c.placement_method!=='midline_plane_snap_v1'}));
+    markers=candidates.map(c=>({name:c.name,center:c.center.slice(),radius_mm:c.radius_mm,source:c.source||'automatic',placement_method:c.placement_method,symmetry_pair_id:c.symmetry_pair_id,isMidline:c.placement_method==='midline_plane_snap_v1'}));
     serial=markers.filter(m=>m.name.startsWith('user_')).length;dirty=false;rebuild();if(active)setActive(true);
   }
   function render(){
@@ -133,42 +132,8 @@
       button.style.left=p.x+'px';button.style.top=p.y+'px';button.style.width=Math.max(12,Math.min(72,ballRadius*2))+'px';button.style.height=button.style.width;
       button.style.setProperty('--range-size',Math.max(16,Math.min(128,rangeRadius*2))+'px');button.style.setProperty('--depth',p.depth);}}
   }
-  function modelLoaded(){
-    if(!active)return;
-    let corrected=0,midlineCount=0,symmetryCorrected=0;
-    for(const marker of markers){
-      if(!marker.needsDepthSnap)continue;marker.needsDepthSnap=false;
-      const projected=window.SkeleViewer?.projectWorld(marker.center),hit=projected&&window.SkeleViewer.raycastSurface(projected.x,projected.y,marker.center);
-      if(!hit?.solidMidpoint)continue;marker.center=hit.solidMidpoint.slice();marker.placement_method='ray_solid_midpoint_v2';corrected++;
-    }
-    for(const marker of markers){
-      if(marker.source!=='user'||marker.symmetry_pair_id)continue;
-      const snapped=window.SkeleViewer?.snapCandidateToMidline(marker.center,marker.radius_mm,manifest?.partition_controls||{});marker.isMidline=Boolean(snapped?.snapped);
-      if(!marker.needsMidlineSnap)continue;marker.needsMidlineSnap=false;if(!snapped?.snapped||snapped.shift_mm<1e-4)continue;
-      marker.center=snapped.center;marker.placement_method='midline_plane_snap_v1';midlineCount++;
-    }
-    const pairs=new Map();for(const marker of markers)if(marker.symmetry_pair_id){if(!pairs.has(marker.symmetry_pair_id))pairs.set(marker.symmetry_pair_id,[]);pairs.get(marker.symmetry_pair_id).push(marker);}
-    for(const members of pairs.values()){
-      if(members.length!==2)continue;
-      const mirrored=members.find(marker=>marker.placement_method==='symmetry_mirror_x_v1')||members[1],primary=members.find(marker=>marker!==mirrored);
-      const reflected=window.SkeleViewer?.reflectPoint(primary.center,primary.radius_mm,manifest?.partition_controls||{},{allowNearPlane:true});
-      if(!reflected||distance(mirrored.center,reflected.center)<1e-4)continue;
-      mirrored.center=reflected.center.slice();mirrored.radius_mm=primary.radius_mm;symmetryCorrected++;
-    }
-    let paired=0;
-    for(const marker of markers){
-      if(!marker.legacySymmetry||marker.symmetry_pair_id)continue;
-      const reflected=window.SkeleViewer?.mirrorCandidate(marker.center,marker.radius_mm,manifest?.partition_controls||{});
-      const counterpart=reflected&&markers.find(m=>m!==marker&&!m.symmetry_pair_id&&distance(m.center,reflected.center)<visualRadius());
-      if(counterpart){markPair(marker,counterpart);marker.legacySymmetry=false;paired++;}
-    }
-    let defaultPaired=0;
-    for(const marker of [...markers])if(marker.source==='user'&&!marker.symmetry_pair_id&&!marker.isMidline&&makeSymmetric(marker,true))defaultPaired++;
-    // Loading or navigating never schedules machining. Persist normalization
-    // together with the next explicit marker edit.
-    if(corrected||midlineCount||symmetryCorrected||paired||defaultPaired)rebuild();
-    else render();
-  }
+  // Navigation displays the saved markers without migrating or modifying them.
+  function modelLoaded(){if(active)render();}
   toggle.addEventListener('click',()=>setActive(!active));
   canvas.addEventListener('dblclick',e=>{
     if(!active||e.button!==0)return;e.preventDefault();e.stopPropagation();const hit=window.SkeleViewer?.raycastSurface(e.clientX,e.clientY);if(!hit)return;

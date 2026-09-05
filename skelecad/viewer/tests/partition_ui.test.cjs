@@ -56,9 +56,8 @@ node('partitionMarkers').children[0].handlers.wheel({deltaY:-1,preventDefault(){
   assert.equal(markers.some(marker=>'enabled' in marker),false);
   manifest.joint_candidates=[{name:'user_ab12',center:[5,0,0],radius_mm:6,source:'user',placement_method:'ray_solid_midpoint_v2'}];
   api.load({id:'c'.repeat(32),stage:'appearance_ready',manifest_sha256:'hash'},manifest);api.modelLoaded();
-  assert.equal(node('partitionMarkers').children.length,2,'a loaded lateral user marker becomes a symmetric pair by default');
-  assert.ok(node('partitionMarkers').children.every(button=>button.dataset.symmetry==='true'));
-  manifest.joint_candidates=[{name:'user_cd34',center:[.5,0,0],radius_mm:6,source:'user',placement_method:'ray_solid_midpoint_v2'}];
+  assert.equal(node('partitionMarkers').children.length,1,'navigation never invents a counterpart for saved markers');
+  manifest.joint_candidates=[{name:'user_cd34',center:[0,0,0],radius_mm:6,source:'user',placement_method:'midline_plane_snap_v1'}];
   api.load({id:'a'.repeat(32),stage:'appearance_ready',manifest_sha256:'hash'},manifest);api.modelLoaded();
   assert.equal(node('partitionMarkers').children.length,1,'a marker snapped to the midline stays single');
   assert.equal(node('partitionMarkers').children[0].dataset.midline,'true','an original midline marker has its own colour state');

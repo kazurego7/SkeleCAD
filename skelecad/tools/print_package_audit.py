@@ -1,4 +1,4 @@
-"""Audit the saved Orca projects and local sliced exports, without changing them.
+"""Shared 3MF and G-code validation, without changing them.
 
 Run with the mesh environment (numpy required). This is not machine certification.
 """
@@ -79,7 +79,7 @@ def extrusion_bounds(gcode):
     """Model/support/brim centerline bounds, including XY arc extrema.
 
     Excludes machine start/end macros and their intentionally off-bed purge moves.
-    Valid only for this Orca export's absolute XYZ / relative E / XY arc mode.
+    Valid only for the supported export format's absolute XYZ / relative E / XY arc mode.
     """
     body = gcode.split("; CHANGE_LAYER", 1)[1].split("; filament end gcode", 1)[0]
     xyz = np.zeros(3)
@@ -137,25 +137,8 @@ def sliced_audit(path):
     return {"file": path.name, "sha256": hashlib.sha256(path.read_bytes()).hexdigest(), "plates": records}
 
 
-if __name__ == "__main__":
-    report = {
-        "status": "sliced_under_provisional_settings_not_released_for_printing",
-        "physical_fit_tested": False,
-        "machine_material_plate_confirmed_by_user": False,
-        "body": project_audit(OUT / "SkeleCAD_1.2.4_A1mini_PLA_draft.3mf"),
-        "fit_kit": project_audit(OUT / "SkeleCAD_1.2.4_fit_kit_A1mini_PLA_draft.3mf", fit=True),
-        "sliced_body": sliced_audit(OUT / "SkeleCAD_1.2.4_A1mini_PLA_UNCONFIRMED_all_plates.gcode.3mf"),
-        "sliced_fit_kit": sliced_audit(OUT / "SkeleCAD_1.2.4_fit_kit_A1mini_PLA_UNCONFIRMED.gcode.3mf"),
-        "limitations": [
-            "Machine, exact filament and plate must be confirmed before using G-code.",
-            "Bed temperature and timelapse warnings preserved; not a warning-free release.",
-            "Orca plate 2 preview JSON has negative X bounds; actual G-code extrusion coordinates are checked independently.",
-            "Toolpath centerline bounds do not certify machine macros, adhesion or support removal.",
-            "Print and physically inspect fit kit first; final joint orientations also require testing.",
-            "No geometry/material-model change; existing CAD/CalculiX reports were not regenerated for slicing.",
-        ],
-    }
-    output = OUT / "print_audit.json"
-    output.write_text(json.dumps(report, indent=2, ensure_ascii=False), encoding="utf-8")
-    print(json.dumps({"report": str(output), "geometry_checks_passed": True,
-                      "toolpath_bounds_passed": True, "status": report["status"]}))
+def set_meta(parent, key, value):
+    node = next((e for e in parent.findall("metadata") if e.get("key") == key), None)
+    if node is None:
+        node = ET.SubElement(parent, "metadata", key=key)
+    node.set("value", str(value))

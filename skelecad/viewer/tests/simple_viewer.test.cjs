@@ -12,7 +12,10 @@ const source=fs.readFileSync(path.join(__dirname,'../app.js'),'utf8');
 const context=vm.createContext({console,performance,Float32Array,ArrayBuffer,DataView,Math,Map,URLSearchParams,SkeleMotion,crypto:require('node:crypto').webcrypto,document:{getElementById:element},window:{addEventListener(){}},requestAnimationFrame(){},setTimeout(fn){timers.set(++nextTimer,fn);return nextTimer;},clearTimeout(id){timers.delete(id);}});
 vm.runInContext(source.replace(/start\(\);\s*$/,''),context);
 const run=code=>JSON.parse(vm.runInContext('JSON.stringify('+code+')',context));
-const b=fs.readFileSync(path.join(__dirname,'../../build/generated_appearance/trex_appearance_200mm_outward.stl'));
+// Self-contained closed mesh fixture: no generated or historical files.
+const vertices=[[-100,-100,-100],[100,-100,-100],[100,100,-100],[-100,100,-100],[-100,-100,100],[100,-100,100],[100,100,100],[-100,100,100]];
+const faces=[[0,2,1],[0,3,2],[4,5,6],[4,6,7],[0,1,5],[0,5,4],[1,2,6],[1,6,5],[2,3,7],[2,7,6],[3,0,4],[3,4,7]];
+const b=Buffer.alloc(84+50*faces.length);b.writeUInt32LE(faces.length,80);faces.forEach((face,i)=>face.forEach((v,j)=>vertices[v].forEach((x,k)=>b.writeFloatLE(x,84+i*50+12+j*12+k*4))));
 context.input=b.buffer.slice(b.byteOffset,b.byteOffset+b.byteLength);
 const result=run(`(()=>{mesh=parseSTL(input);resetView();return {count:mesh.positions.length/9,finite:mesh.normals.every(Number.isFinite),extent,distance};})()`);
 assert.equal(result.count,b.readUInt32LE(80));assert.equal(result.finite,true);assert.ok(result.extent>190&&result.extent<210);
@@ -78,7 +81,7 @@ assert.equal(panResult.yaw,-Math.PI/2);assert.equal(panResult.pitch,.1);
 console.log('PASS: middle drag pans without rotating and middle double-click restores the original view');
 const html=fs.readFileSync(path.join(__dirname,'../index.html'),'utf8');
 assert.equal((html.match(/<canvas /g)||[]).length,1);
-assert.equal((html.split('</header>')[0].match(/<button\b[^>]*>/g)||[]).filter(tag=>!tag.includes(' hidden')).length,2,'only model picker and camera reset are always visible');
+assert.equal((html.split('</header>')[0].match(/<button\b[^>]*>/g)||[]).filter(tag=>!tag.includes(' hidden')).length,1,'only model picker is always visible in the header');
 assert.ok(/id="modelSelect" hidden/.test(html)&&html.includes('id="modelGallery"')&&html.includes('model-gallery.js'),'the native model select is replaced by an image gallery dialog');
 assert.ok(html.includes('id="modelTrashOpen"')&&html.includes('id="modelTrashBack"')&&html.includes('id="modelTrashEmpty"'),'the model gallery exposes trash, restore navigation and permanent bulk deletion');
 assert.ok(!/id="machineImage"/.test(html),'machining runs in the background without a header action');
@@ -100,7 +103,7 @@ assert.ok(!/\.modelCardDescription/.test(css)&&!fs.readFileSync(path.join(__dirn
 assert.ok(/\.modelGallery \.iconButton,\.modelCardTrash[^}]*place-items:center[^}]*padding:0/.test(css)&&/\.modelCardRestore[^}]*flex:0 0 auto/.test(css),'gallery icons are centered and restore shares the title row without overlap');
 const partitionSource=fs.readFileSync(path.join(__dirname,'../partition-ui.js'),'utf8');
 assert.ok(partitionSource.includes('joint_ball_diameter_mm')&&css.includes('--range-size'),'joint ball size and partition envelope are rendered separately');
-assert.ok(partitionSource.includes('solidMidpoint')&&partitionSource.includes('needsDepthSnap'),'new and legacy user markers use solid depth centering');
+assert.ok(partitionSource.includes('solidMidpoint')&&!partitionSource.includes('needsDepthSnap'),'new markers use solid centering without migration');
 assert.ok(partitionSource.includes('symmetry_mirror_x_v1')&&partitionSource.includes('toggle.hidden=true'),'similar opposite geometry is paired and the edit-mode toggle stays hidden');
 assert.ok(partitionSource.includes('symmetry_pair_id')&&!partitionSource.includes('dataset.enabled'),'symmetric pairs persist and marker enable toggles are absent');
 assert.ok(css.includes('data-symmetry="true"'),'symmetric marker pairs have a distinct colour');
@@ -116,64 +119,23 @@ assert.ok(snapshotSource.includes('localStorage'),'pose snapshots persist locall
 assert.ok(snapshotSource.includes("filter(item=>item.model===defaultModel)")&&snapshotSource.includes("item.model!==defaultModel"),'pose snapshots are stored and displayed per model');
 assert.ok(/\.snapshotRestore img[^}]*aspect-ratio:4\/3[^}]*object-fit:contain/.test(css),'snapshot thumbnails preserve their aspect ratio');
 assert.ok(snapshotSource.includes('snapshotCameraIcon')&&!snapshotSource.includes('新規追加'),'snapshot creation is an icon-only camera card');
-assert.ok(snapshotSource.includes('items.unshift')&&snapshotSource.indexOf('card(front,true)+addCard()')>=0,'camera card stays below front and saved cards are newest-first');
+assert.ok(snapshotSource.includes('items.unshift')&&snapshotSource.includes("list.innerHTML=addCard()+items.map"),'camera card is first and saved cards are newest-first');
 assert.ok(snapshotSource.includes('draggable="true"')&&snapshotSource.includes("application/x-skelecad-snapshot")&&snapshotSource.includes("addEventListener('drop'"),'saved cards use isolated drag-and-drop reordering');
-assert.ok(snapshotSource.includes('resetButton.hidden=active'),'articulated views hide the redundant reset button');
+assert.ok(!snapshotSource.includes('resetButton'),'snapshot panel does not control the workflow reset button');
+assert.ok(html.includes('id="workflowTools"')&&!html.split('</header>')[0].includes('id="resetView"'));
 assert.ok(/#poseSnapshots[^}]*scrollbar-gutter:stable/.test(css),'snapshot rail reserves scrollbar space so card size stays fixed');
 assert.ok(!/cut_topology|boundary_fill|penPanel|jointControls|cutControls/.test(html));
 for(const asset of html.matchAll(/value="\.\.\/(.*?)"/g))assert.ok(fs.existsSync(path.join(__dirname,'../../',asset[1])),asset[1]);
 const select=element('modelSelect');
 const modelSelectHtml=html.match(/<select id="modelSelect"[^>]*>([\s\S]*?)<\/select>/)[1];
 select.options=Array.from(modelSelectHtml.matchAll(/<option value="([^"]+)"/g),match=>({value:match[1]}));
-select.value=select.options[0].value;
-vm.runInContext("selectInitialModel('?model=../build/hybrid/trex_hybrid_assembly.stl')",context);
-assert.equal(select.value,'../build/hybrid/trex_hybrid_assembly.stl');
-for(const query of ['?model=https://example.com/evil.stl','?model=../config/toolchain.json','']){
-  select.value=select.options[0].value;context.query=query;
-  vm.runInContext('selectInitialModel(query)',context);
-  assert.equal(select.value,select.options[0].value);
-}
-console.log('PASS: real STL, malformed input, orbit, pinch, zoom limits, reset, unchanged geometry and no geometry editing code');
-console.log('PASS: approved model deep link, unsafe/unknown URL rejection and original default retained');
-const config=JSON.parse(fs.readFileSync(path.join(__dirname,'../../config/parameters.json'),'utf8'));
-if(config.appearance_candidate){
-  const candidate=config.appearance_candidate;
-  const activeRoot=config.hybrid_new?.palm_size?.enabled?config.hybrid_new.palm_size.output_directory:config.hybrid_new?.output_directory;
-  const activeModel=activeRoot ? '../'+activeRoot+'/trex_hybrid_assembly.stl' : '../'+candidate.mesh;
-  assert.equal(select.options[0].value,activeModel);
-  if(config.hybrid_new){
-    assert.ok(html.includes('新規モデル：1.2.7 ジョイント加工済み'));
-    const packaged=JSON.parse(fs.readFileSync(path.join(__dirname,'../../build/reports/hybrid_package.json'),'utf8'));
-    if(config.hybrid_new.palm_size?.enabled){
-      assert.equal(packaged.appearance_mesh,activeRoot+'/source_scaled.stl');
-      const sizing=JSON.parse(fs.readFileSync(path.join(__dirname,'../../',activeRoot,'sizing.json'),'utf8'));
-      assert.equal(sizing.original_source.replaceAll('\\','/'),candidate.mesh);
-      assert.equal(sizing.source_sha256,require('node:crypto').createHash('sha256').update(fs.readFileSync(path.join(__dirname,'../../',candidate.mesh))).digest('hex'));
-    }else assert.equal(packaged.appearance_mesh,candidate.mesh);
-    assert.equal('../'+packaged.assembly_review_stl.replaceAll('\\','/'),activeModel);
-  }
-  assert.ok(html.includes('新規生成：今回の画像（8/30）'));
-  assert.ok(html.includes('旧モデル：外観（8/21）'));
-  assert.ok(html.includes('精密ジョイント未加工'));
-  const current=fs.readFileSync(path.join(__dirname,'../../',candidate.mesh));
-  context.input=current.buffer.slice(current.byteOffset,current.byteOffset+current.byteLength);
-  const parsed=run('(()=>{const m=parseSTL(input);return {faces:m.positions.length/9,width:m.high[0]-m.low[0]};})()');
-  assert.equal(parsed.faces,current.readUInt32LE(80));
-  assert.ok(Math.abs(parsed.width-config.hybrid.target_length_mm)<.001);
-  const crypto=require('node:crypto');
-  const original=fs.readFileSync(path.join(__dirname,'../../',candidate.source_image));
-  assert.equal(crypto.createHash('sha256').update(original).digest('hex'),candidate.source_sha256);
-  console.log('PASS: current assembly provenance/default, old model labels, unprocessed reference notice, size and source hash');
-}
-
-const assemblyPath='../'+config.hybrid_new.output_directory+'/trex_hybrid_assembly.stl';
-context.assemblyPath=assemblyPath;
-const sources=run('modelSources(assemblyPath)');
-assert.equal(sources.length,9);
-assert.equal(new Set(sources.map(s=>s.part.color)).size,9);
-assert.equal(new Set(sources.map(s=>s.part.name)).size,9);
+assert.equal(select.options.length,0,'new installation does not expose historical models');select.value='';
+const assemblyPath='job:test-assembly';context.assemblyPath=assemblyPath;
+const names=['head','torso','arm_left','arm_right','leg_left','leg_right','foot_left','foot_right','tail'];
+const sources=names.map((name,i)=>({path:'../api/test/'+name+'.stl',part:{name,label:name,color:'#'+(0x123456+i*0x10101).toString(16)}}));
+context.window.SkeleCADWorkflow={manifest:async()=>({parts:sources.map(s=>({...s.part,path:s.path}))})};
 context.coloredItems=sources.map(s=>{
-  const data=fs.readFileSync(path.join(__dirname,'../../',s.path.slice(3)));
+  const data=b;
   context.input=data.buffer.slice(data.byteOffset,data.byteOffset+data.byteLength);
   return {part:s.part,mesh:vm.runInContext('parseSTL(input)',context)};
 });
@@ -185,11 +147,7 @@ for(const item of context.coloredItems){
   assert.deepEqual(coloredMesh.normals.slice(offset,offset+item.mesh.normals.length),item.mesh.normals);
   offset+=item.mesh.positions.length;
 }
-const assembly=fs.readFileSync(path.join(__dirname,'../../',assemblyPath.slice(3)));
-assert.equal(coloredMesh.positions.length/9,assembly.readUInt32LE(80));
-context.input=assembly.buffer.slice(assembly.byteOffset,assembly.byteOffset+assembly.byteLength);
-assert.deepEqual(run('parseSTL(input).low'),run('mesh.low'));
-assert.deepEqual(run('parseSTL(input).high'),run('mesh.high'));
+assert.equal(coloredMesh.positions.length/9,faces.length*9);
 element('gl').clientWidth=980;element('gl').clientHeight=910;
 vm.runInContext('program={};updatePartState();resetView();render()',context);
 assert.equal(element('gl').dataset.colorMode,'parts');assert.equal(element('gl').dataset.partCount,'9');
@@ -232,15 +190,10 @@ vm.runInContext('motion=null',context);
 console.log('PASS: all nine parts opaque with a selection and no blending');
 console.log('PASS: orbit/Alt/middle/pinch/wheel/part drag and gesture end/cancel/lost capture all stay opaque');
 context.singlePath=sources[4].path;
-assert.equal(run('modelSources(singlePath)[0].part.name'),'leg_left');
-assert.equal(run("modelSources('../build/generated_appearance/20260830_dfba1098/trex_new_200mm.stl')[0].part"),null);
-assert.equal(run("modelSources('https://example.com/trex_hybrid_assembly.stl').length"),1);
-console.log('PASS: nine permanent part colors, no legend/joint cards, full viewport, hidden top banner, unchanged vertices/normals, exact assembly bounds/facet count, grouped rendering, single-part mapping');
-
 async function testLoading(){
   for(const option of select.options)option.dataset={description:'test model'};
   const requests=[];
-  context.fetch=async url=>{requests.push(url);const data=fs.readFileSync(path.join(__dirname,'../../',url.slice(3)));return {ok:true,arrayBuffer:async()=>data.buffer.slice(data.byteOffset,data.byteOffset+data.byteLength)};};
+  context.fetch=async url=>{requests.push(url);const data=b;return {ok:true,arrayBuffer:async()=>data.buffer.slice(data.byteOffset,data.byteOffset+data.byteLength)};};
   await vm.runInContext('loadModel(assemblyPath)',context);
   assert.equal(requests.length,9);assert.equal(element('gl').dataset.loaded,'true');
   assert.equal(element('gl').dataset.partCount,'9');assert.equal(element('gl').dataset.colorMode,'parts');
@@ -248,7 +201,7 @@ async function testLoading(){
   await vm.runInContext('loadModel(singlePath)',context);
   assert.equal(vm.runInContext('mesh',context),null);assert.equal(element('gl').dataset.loaded,'false');
   assert.equal(element('gl').dataset.partCount,'0');assert.match(element('status').textContent,/404/);
-  const data=fs.readFileSync(path.join(__dirname,'../../',sources[0].path.slice(3)));
+  const data=b;
   const buffer=data.buffer.slice(data.byteOffset,data.byteOffset+data.byteLength);
   let resolveSlow;
   context.fetch=url=>url===sources[0].path?new Promise(resolve=>{resolveSlow=()=>resolve({ok:true,arrayBuffer:async()=>buffer});}):Promise.resolve({ok:true,arrayBuffer:async()=>buffer});
@@ -256,7 +209,8 @@ async function testLoading(){
   const slow=vm.runInContext('loadModel(slowPath)',context);
   await vm.runInContext('loadModel(singlePath)',context);resolveSlow();await slow;
   assert.equal(element('gl').dataset.model,sources[4].path);
-  assert.equal(run('mesh.groups[0].part.name'),'leg_left');
+  assert.equal(run('mesh.groups[0].part'),null);
+  await vm.runInContext("loadModel('')",context);assert.equal(vm.runInContext('mesh',context),null);assert.equal(element('status').hidden,true);
   console.log('PASS: nine-file assembly loading, missing-file failure clears stale model/legend, stale asynchronous load cannot replace current selection');
 }
 testLoading().catch(error=>{console.error(error);process.exitCode=1;});

@@ -20,7 +20,7 @@
 リポジトリのルートで実行します。
 
 ```powershell
-.\skelecad\tools\open_3d_viewer.ps1
+powershell -ExecutionPolicy Bypass -File .\start.ps1
 ```
 
 画像を画面にドロップして生成を開始します。分割位置の調整、左右対称化、
@@ -64,6 +64,6 @@
 閉じたメッシュ・組立衝突・可動域の検査、CalculiX解析、レビュー画像を生成します。
 `build/preview/assembly.png`と`build/review/current/summary.md`がレビュー用出力です。
 過去の製作経緯は[変更履歴](docs/CHANGELOG.md)と[設計](docs/DESIGN.md)に残しています。
-旧版の入力やテンプレートを必要とする印刷補助処理もあり、全製作工程はcloneだけでは完結しません。
+画像からの通常ワークフローは過去の出力・3MFテンプレートを必要としません。固定CADモデルの開発用ビルドでは、設定された入力画像・外観メッシュが別途必要です。
 
 [ローカル接続と保存](docs/LOCAL_WEB_APP.md) · [配布範囲](../THIRD_PARTY_NOTICES.md)
