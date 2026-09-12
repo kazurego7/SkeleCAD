@@ -1,4 +1,4 @@
-param([switch]$NoBrowser, [switch]$SetupOnly)
+param([switch]$NoBrowser, [switch]$SetupOnly, [switch]$Tailscale)
 $ErrorActionPreference = 'Stop'
 $workspace = $PSScriptRoot
 $uvCommand = Get-Command uv.exe -ErrorAction SilentlyContinue
@@ -17,4 +17,4 @@ if (-not (Test-Path -LiteralPath $uv)) {
 $config = Get-Content -LiteralPath (Join-Path $workspace 'skelecad/config/toolchain.json') -Raw | ConvertFrom-Json
 & $uv run --no-project --python $config.workflow_python.version (Join-Path $workspace 'skelecad/tools/setup_runtime.py') --uv $uv
 if ($LASTEXITCODE -ne 0) { throw 'Setup failed. Correct the reported problem, then run this command again.' }
-if (-not $SetupOnly) { & (Join-Path $workspace 'skelecad/tools/open_3d_viewer.ps1') -NoBrowser:$NoBrowser }
+if (-not $SetupOnly) { & (Join-Path $workspace 'skelecad/tools/open_3d_viewer.ps1') -NoBrowser:$NoBrowser -Tailscale:$Tailscale }

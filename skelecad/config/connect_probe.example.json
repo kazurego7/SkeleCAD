@@ -1,0 +1,10 @@
+{
+  "printer_label": "3DP-030-654",
+  "material": "PLA",
+  "spool": "external",
+  "options": {
+    "Timelapse": "Off",
+    "Bed leveling": "On",
+    "Flow dynamic calibration": "On"
+  }
+}

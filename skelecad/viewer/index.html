@@ -4,7 +4,14 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <title>SkeleCAD 3Dビュワー</title>
-  <link rel="stylesheet" href="style.css?v=4.3.0">
+  <meta name="theme-color" content="#1b1c1e">
+  <meta name="apple-mobile-web-app-title" content="SkeleCAD">
+  <link rel="icon" type="image/png" sizes="32x32" href="icons/favicon-32x32.png?v=4.5.0">
+  <link rel="icon" type="image/png" sizes="48x48" href="icons/favicon-48x48.png?v=4.5.0">
+  <link rel="apple-touch-icon" sizes="180x180" href="icons/apple-touch-icon.png?v=4.5.0">
+  <link rel="manifest" href="manifest.json?v=4.5.0">
+  <link rel="stylesheet" href="style.css?v=4.5.3">
+  <link rel="stylesheet" href="mobile.css?v=4.5.0" media="(max-width: 760px), (max-width: 1024px) and (pointer: coarse), (max-width: 1024px) and (max-height: 500px)">
 </head>
 <body>
   <header>
@@ -14,6 +21,7 @@
       <button id="partitionAdjust" class="textButton" type="button" hidden>分割位置を指定</button>
       <span id="printState" role="status" aria-live="polite" hidden></span>
       <button id="modelPicker" class="textButton modelPicker" type="button" aria-haspopup="dialog" aria-controls="modelGallery">3Dモデルを選ぶ</button>
+      <button id="workflowHelpOpen" class="iconButton" type="button" aria-label="この工程の操作説明" aria-haspopup="dialog" aria-controls="workflowHelp">？</button>
       <label for="modelSelect">表示するモデル</label>
       <select id="modelSelect" hidden>
       </select>
@@ -23,18 +31,19 @@
   <nav id="workflowBar" aria-label="制作の工程">
     <button id="step0" type="button">画像</button><span aria-hidden="true">›</span>
     <button id="step1" type="button">モデル</button><span aria-hidden="true">›</span>
-    <button id="step2" type="button">パーツ分割</button><span aria-hidden="true">›</span>
+    <button id="step2" type="button">パーツ<span class="workflowStepSecond">分割</span></button><span aria-hidden="true">›</span>
     <button id="step3" type="button">可動域</button><span aria-hidden="true">›</span>
-    <button id="step4" type="button">プリント準備</button>
+    <button id="step4" type="button">プリント<span id="printStepActionText" class="workflowStepSecond">準備</span></button>
     <p id="workflowHint" role="status"></p>
   </nav>
   <div id="workflowTools" aria-label="表示の操作" hidden>
-    <button id="resetView" class="textButton" type="button" title="視点と関節の姿勢を初期状態に戻す">↺ 表示をリセット</button>
+    <button id="resetView" class="textButton" type="button" aria-label="表示をリセット" title="視点と関節の姿勢を初期状態に戻す"><span class="resetViewLabel" aria-hidden="true">↺ 表示をリセット</span></button>
     <button id="openSymmetry" class="textButton" type="button" aria-haspopup="dialog" aria-controls="symmetryDialog" hidden>左右対称化</button>
   </div>
   <section id="workflowImage" aria-label="入力画像" hidden>
     <p id="workflowImageMessage" role="status" hidden></p>
     <img id="workflowSource" alt="このモデルの入力画像">
+    <p class="mobileOnly">ここをタップして画像を選ぶ</p>
     <p>ここに画像をドロップすると、新しい3Dモデルを作成します。PNG・JPEG・WebP対応</p>
   </section>
   <canvas id="gl" aria-label="3Dモデル" tabindex="0" title="パーツ中央：曲げる／パーツ外側を円弧ドラッグ：ねじり／Shift＋ドラッグ：ねじり／背景・胴体：視点回転／中ボタンドラッグ：平行移動／中ボタンダブルクリック：視点を戻す／画面外周を円弧ドラッグ・2本指をひねる：視点の傾き／ホイール・ピンチ：拡大縮小／矢印キー：微調整／Home：選択関節を戻す／Esc：全姿勢を戻す"></canvas>
@@ -76,8 +85,12 @@
     <p id="modelGalleryStatus" class="modelGalleryStatus" role="status" hidden></p>
     <div id="modelGalleryList" class="modelGalleryList"></div>
   </dialog>
+  <dialog id="workflowHelp" aria-labelledby="workflowHelpTitle">
+    <div class="workflowHelpHeader"><h2 id="workflowHelpTitle">操作説明</h2><button id="workflowHelpClose" class="iconButton" type="button" aria-label="操作説明を閉じる" autofocus>×</button></div>
+    <div id="workflowHelpBody"></div>
+  </dialog>
   <div id="snapshotFlash" aria-hidden="true" hidden></div>
-  <div id="status" role="status">モデルを読み込み中…</div>
+  <div id="status" role="status" data-loading="true" aria-live="polite">モデルを読み込み中…</div>
   <div id="twistGuide" aria-hidden="true" hidden></div>
   <div id="partitionMarkers" aria-label="分割位置マーカー" hidden></div>
   <div id="imageDrop" hidden>画像をドロップして3Dモデルを作成</div>
@@ -86,13 +99,27 @@
     <span id="generationProgressText"></span>
   </div>
   <p id="workflowStatus" role="status" hidden></p>
-  <script src="motion-core.js?v=4.0.0"></script>
-  <script src="motion-ui.js?v=4.2.0"></script>
-  <script src="model-gallery.js?v=4.2.0"></script>
-  <script src="pose-snapshots.js?v=4.3.1"></script>
-  <script src="mesh-cache.js?v=1"></script>
-  <script src="app.js?v=4.3.1"></script>
-  <script src="partition-ui.js?v=4.2.0"></script>
-  <script src="workflow-ui.js?v=4.3.1"></script>
+  <dialog id="remotePrintConfirm" aria-labelledby="remotePrintTitle" aria-describedby="remotePrintDescription">
+    <h2 id="remotePrintTitle">プリント開始</h2>
+    <p id="remotePrintModel"></p>
+    <p id="remotePrintDescription">選択したプレートをプリンターへ送信して印刷を開始します。プレート上に造形物がなく、表示されたフィラメントを使えることを確認してください。</p>
+    <p id="remotePrintStatus" role="status" aria-live="polite"></p>
+    <label>印刷するプレート <select id="remotePrintPlate" disabled></select></label>
+    <p><label><input id="remotePrintBedClear" type="checkbox"> プレートとフィラメントを確認しました</label></p>
+    <div class="remotePrintActions">
+      <button id="remotePrintCancel" type="button" autofocus>キャンセル</button>
+      <button id="remotePrintStart" type="button" disabled>印刷を開始</button>
+    </div>
+  </dialog>
+  <script src="motion-core.js?v=4.5.0"></script>
+  <script src="motion-ui.js?v=4.5.0"></script>
+  <script src="model-gallery.js?v=4.5.0"></script>
+  <script src="pose-snapshots.js?v=4.5.0"></script>
+  <script src="mesh-cache.js?v=4.5.0"></script>
+  <script src="app.js?v=4.5.0"></script>
+  <script src="partition-ui.js?v=4.5.0"></script>
+  <script src="remote-print-ui.js?v=4.5.2"></script>
+  <script src="workflow-ui.js?v=4.5.2"></script>
+  <script src="mobile-ui.js?v=4.5.2"></script>
 </body>
 </html>

@@ -1,0 +1,8 @@
+{
+  "name": "A1 mini",
+  "model": "A1 mini",
+  "host": "192.168.1.100",
+  "serial": "SET_PRINTER_SERIAL",
+  "use_ams": false,
+  "ams_slot": 0
+}

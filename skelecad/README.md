@@ -23,6 +23,10 @@
 powershell -ExecutionPolicy Bypass -File .\start.ps1
 ```
 
+Tailscale経由で使う場合は初回に `-Tailscale` を付けます。
+接続先は `https://端末のTailscaleホスト名/skelecad/` です。
+以降は接続方式を保存し、通常起動でも同じ設定を利用します。
+
 画像を画面にドロップして生成を開始します。分割位置の調整、左右対称化、
 ジョイント加工を行い、動かして確認した姿勢で「プリント準備」を進めます。
 「プリント準備」は配置・サポート設定済みの3MFをBambu Studioで開きます。

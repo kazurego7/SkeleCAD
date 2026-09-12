@@ -2,6 +2,12 @@
 (()=>{
   const canvas=document.getElementById('gl'),layer=document.getElementById('partitionMarkers'),toggle=document.getElementById('partitionAdjust'),line=document.getElementById('workflowStatus');
   let active=false,job=null,manifest=null,markers=[],buttons=new Map(),spacingConflicts=[],serial=0,dirty=false,saving=false,awaitingResult=false,saveTimer=null;
+  function resizeMarker(marker,delta){
+    if(!marker)return;const limits=manifest?.partition_controls||{};
+    const radius=Math.min(Number(limits.maximum_marker_radius_mm)||30,Math.max(Number(limits.minimum_marker_radius_mm)||1,marker.radius_mm+delta));
+    for(const member of markers)if(member===marker||(marker.symmetry_pair_id&&member.symmetry_pair_id===marker.symmetry_pair_id))member.radius_mm=radius;
+    rebuild();markDirty('分割範囲を変更しました。色分けを自動更新します。');
+  }
   const showMessage=text=>{line.textContent=text;line.hidden=!text;};
   const readyToSave=()=>job&&((['appearance_ready','partition_failed'].includes(job.stage)&&!job.mechanical_revision)||
     (job.mechanical_revision&&['mechanical_review','print_ready','print_failed'].includes(job.stage)&&window.SkeleCADWorkflow?.ensureEditable));
@@ -65,7 +71,7 @@
     if(marker.symmetry_pair_id){
       if(automatic)return false;
       const pairId=marker.symmetry_pair_id;markers=markers.filter(m=>m===marker||m.symmetry_pair_id!==pairId);delete marker.symmetry_pair_id;marker.isMidline=false;marker.placement_method='ray_solid_midpoint_v2';
-      rebuild();markDirty('左右対称を解除し、ダブルクリックした側だけ残しました。');return true;
+      rebuild();markDirty('左右対称を解除し、操作した側だけ残しました。');return true;
     }
     const reflected=window.SkeleViewer?.reflectPoint(marker.center,marker.radius_mm,manifest?.partition_controls||{},{allowNearPlane:true});
     if(!reflected){showMessage('中心面に近すぎるため、左右対称にできませんでした。');return false;}
@@ -90,12 +96,9 @@
       const updateTitle=()=>{button.title=(failed?'加工失敗候補：':'')+'マーカー'+number+'番・'+markerKind+'（ボール径 '+(visualRadius()*2).toFixed(1)+' mm／分割範囲 '+marker.radius_mm.toFixed(1)+' mm）';button.setAttribute('aria-label',button.title);};updateTitle();
       button.textContent=String(number);
       button.dataset.source=marker.source||'automatic';button.dataset.symmetry=String(Boolean(marker.symmetry_pair_id));button.dataset.midline=String(Boolean(marker.isMidline&&!marker.symmetry_pair_id));button.dataset.failed=String(failed);
+      button.dataset.markerName=marker.name;
       button.addEventListener('dblclick',e=>{e.preventDefault();e.stopPropagation();makeSymmetric(marker);});
-      button.addEventListener('wheel',e=>{e.preventDefault();e.stopPropagation();const limits=manifest?.partition_controls||{};
-        const minimum=Number(limits.minimum_marker_radius_mm)||1,maximum=Number(limits.maximum_marker_radius_mm)||30;
-        const radius=Math.min(maximum,Math.max(minimum,marker.radius_mm+(e.deltaY<0?.5:-.5)));
-        for(const member of markers)if(member===marker||(marker.symmetry_pair_id&&member.symmetry_pair_id===marker.symmetry_pair_id))member.radius_mm=radius;
-        rebuild();markDirty('分割範囲を変更しました。色分けを自動更新します。');},{passive:false});
+      button.addEventListener('wheel',e=>{e.preventDefault();e.stopPropagation();resizeMarker(marker,e.deltaY<0?.5:-.5);},{passive:false});
       button.addEventListener('contextmenu',e=>{e.preventDefault();e.stopPropagation();removeMarker(marker);});
       layer.append(button);buttons.set(marker,button);
     }
@@ -111,7 +114,7 @@
     active=Boolean(value&&job&&manifest);layer.hidden=!active;canvas.classList.toggle('partitionEditing',active);
     toggle.hidden=true;
     const conflict=spacingConflicts[0];
-    showMessage(active?(conflict?`マーカー${conflict.aNumber}番と${conflict.bNumber}番が近すぎます（${conflict.separation.toFixed(1)} mm／必要 ${conflict.minimum.toFixed(1)} mm）。片方を削除し、離れた位置へ追加してください。`:'表示中のマーカーはすべて分割に使います。中央付近は単独、それ以外は自動で左右対称にします。ホイールで範囲調整、右クリックで削除できます。'):'');
+    showMessage(active?(conflict?`マーカー${conflict.aNumber}番と${conflict.bNumber}番が近すぎます（${conflict.separation.toFixed(1)} mm／必要 ${conflict.minimum.toFixed(1)} mm）。片方を削除し、離れた位置へ追加してください。`:(window.SkeleMobile?.isActive()?'モデルを長押しで追加、マーカーを長押しで削除。マーカーをダブルタップで左右対称を切り替えます。':'表示中のマーカーはすべて分割に使います。中央付近は単独、それ以外は自動で左右対称にします。ホイールで範囲調整、右クリックで削除できます。')):'');
     if(dirty&&readyToSave())scheduleSave();
     render();
   }
@@ -129,18 +132,25 @@
     for(const [marker,button] of buttons){const p=window.SkeleViewer.projectWorld(marker.center);button.hidden=!p;if(p){
       const projectedRadius=millimetres=>Math.max(...[[millimetres,0,0],[0,millimetres,0],[0,0,millimetres]].map(offset=>{const q=window.SkeleViewer.projectWorld(marker.center.map((v,i)=>v+offset[i]));return q?Math.hypot(q.x-p.x,q.y-p.y):0;}));
       const ballRadius=projectedRadius(visualRadius()),rangeRadius=projectedRadius(marker.radius_mm);
-      button.style.left=p.x+'px';button.style.top=p.y+'px';button.style.width=Math.max(12,Math.min(72,ballRadius*2))+'px';button.style.height=button.style.width;
+      const phone=window.SkeleMobile?.isActive(),diameter=Math.max(phone?8:12,Math.min(phone?96:72,ballRadius*2));
+      button.style.left=p.x+'px';button.style.top=p.y+'px';button.style.width=diameter+'px';button.style.height=button.style.width;button.style.setProperty('--marker-size',diameter+'px');
       button.style.setProperty('--range-size',Math.max(16,Math.min(128,rangeRadius*2))+'px');button.style.setProperty('--depth',p.depth);}}
   }
   // Navigation displays the saved markers without migrating or modifying them.
   function modelLoaded(){if(active)render();}
   toggle.addEventListener('click',()=>setActive(!active));
-  canvas.addEventListener('dblclick',e=>{
-    if(!active||e.button!==0)return;e.preventDefault();e.stopPropagation();const hit=window.SkeleViewer?.raycastSurface(e.clientX,e.clientY);if(!hit)return;
+  function addAt(x,y){
+    if(!active)return false;
+    if(markers.length>=(Number(manifest?.partition_controls?.maximum_markers)||32)){showMessage('マーカー数が上限に達しています。');return false;}
+    const hit=window.SkeleViewer?.raycastSurface(x,y);if(!hit)return false;
     const radius=Number(manifest?.partition_controls?.default_marker_radius_mm)||6;
     const rawCenter=centerFromHit(hit,visualRadius()),snapped=window.SkeleViewer?.snapCandidateToMidline(rawCenter,radius,manifest?.partition_controls||{}),center=snapped?.center||rawCenter,name='user_'+Date.now().toString(36)+(++serial).toString(36);
     const primary={name,center,radius_mm:radius,source:'user',isMidline:Boolean(snapped?.snapped),placement_method:snapped?.snapped?'midline_plane_snap_v1':'ray_solid_midpoint_v2'};markers.push(primary);
-    if(primary.isMidline){rebuild();markDirty('中央マーカーを左右対称面上に追加しました。');}else makeSymmetric(primary);
+    if(primary.isMidline){rebuild();markDirty('中央マーカーを左右対称面上に追加しました。');}else if(!makeSymmetric(primary)){rebuild();markDirty('片側のマーカーを追加しました。');}
+    return true;
+  }
+  canvas.addEventListener('dblclick',e=>{
+    if(!active||e.button!==0)return;e.preventDefault();e.stopPropagation();addAt(e.clientX,e.clientY);
   });
   function jobUpdated(nextJob){
     if(job?.id!==nextJob?.id)return;
@@ -151,5 +161,8 @@
   const hasPendingChanges=()=>dirty||saving||awaitingResult;
   const hasSpacingConflicts=()=>spacingConflicts.length>0;
   const shouldDeferManifest=nextJob=>active&&job?.id===nextJob?.id&&hasPendingChanges();
-  window.SkelePartition={pendingMarkers:()=>hasPendingChanges()?markers.map(m=>({name:m.name,center:m.center.slice(),radius_mm:m.radius_mm,symmetry_pair_id:m.symmetry_pair_id,placement_method:m.placement_method})):null,load,render,modelLoaded,jobUpdated,isActive:()=>active,hasPendingChanges,hasSpacingConflicts,shouldDeferManifest,centerFromHit,begin:()=>setActive(true),end:()=>setActive(false),visualRadius,flush:saveNow};
+  window.SkelePartition={pendingMarkers:()=>hasPendingChanges()?markers.map(m=>({name:m.name,center:m.center.slice(),radius_mm:m.radius_mm,symmetry_pair_id:m.symmetry_pair_id,placement_method:m.placement_method})):null,load,render,modelLoaded,jobUpdated,isActive:()=>active,hasPendingChanges,hasSpacingConflicts,shouldDeferManifest,centerFromHit,begin:()=>setActive(true),end:()=>setActive(false),visualRadius,flush:saveNow,
+    addAt,
+    removeNamed(name){const marker=markers.find(m=>m.name===name);if(active&&marker)removeMarker(marker);},
+    toggleNamed(name){const marker=markers.find(m=>m.name===name);if(active&&marker)makeSymmetric(marker);}};
 })();

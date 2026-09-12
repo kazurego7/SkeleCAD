@@ -27,6 +27,11 @@ vm.runInContext(fs.readFileSync(path.join(__dirname,'../workflow-ui.js'),'utf8')
 const flush=()=>new Promise(resolve=>setImmediate(resolve));
 (async()=>{
   await flush();assert.equal(select.value,'legacy');
+  node('workflowImage').handlers.click();assert.equal(node('imageUpload').clicked,undefined,'desktop image area retains its original behavior');
+  context.window.SkeleMobile={isActive:()=>true};node('workflowImage').handlers.click();
+  assert.equal(node('imageUpload').clicked,true,'phone image area opens the existing picker without adding a button');
+  delete context.window.SkeleMobile;
+
   let prevented=0;const file={type:'image/png',size:50,name:'blue_robot.png'};
   events.dragenter({preventDefault(){prevented++;},dataTransfer:{types:['Files']}});
   assert.equal(node('imageDrop').hidden,false);
@@ -120,6 +125,8 @@ const flush=()=>new Promise(resolve=>setImmediate(resolve));
   assert.equal(partitionLoads,partitionLoadsBefore,'appearance viewing must not replace pending markers');
   await node('step0').handlers.click();
   assert.equal(node('step0').dataset.current,'true');
+  assert.match(node('workflowSource').src,/source\.png\?display=1$/,'image stage requests the lightweight display instead of the source PNG');
+  assert.equal(node('workflowSource').fetchPriority,'high');
   assert.equal(requests.filter(r=>r.method==='POST').length,mutations,'viewing earlier stages neither cancels nor rebuilds');
   context.window.SkelePartition.hasPendingChanges=()=>false;
 
@@ -146,9 +153,18 @@ const flush=()=>new Promise(resolve=>setImmediate(resolve));
   await node('step4').handlers.click();
   assert.equal(node('step3').dataset.current,'true','prepared jobs also navigate to joints');
   assert.ok(requests.some(r=>r.url.endsWith('/open-print')),'prepared print action opens Bambu Studio');
+  const localPosts=requests.filter(r=>r.method==='POST').length;let directCalls=0;
+  context.window.location={hostname:'pc-win.tail5f79dc.ts.net'};
+  context.window.SkeleRemotePrint={async open(remoteJob,review,isCurrent){directCalls++;assert.equal(remoteJob.id,id);assert.equal(review.collision,'clear');assert.equal(isCurrent(),true);}};
+  context.window.SkeleCADWorkflow.refreshControls();
+  assert.equal(node('printStepActionText').textContent,'開始');
+  await node('step4').handlers.click();assert.equal(directCalls,1);
+  assert.equal(requests.filter(r=>r.method==='POST').length,localPosts,'remote action never uses local prepare/open endpoints');
+  context.window.location={hostname:'127.0.0.1'};context.window.SkeleCADWorkflow.refreshControls();
+  assert.equal(node('printStepActionText').textContent,'準備');
   const html=fs.readFileSync(path.join(__dirname,'../index.html'),'utf8');
   assert.doesNotMatch(html,/id="(?:openBambu|preparePrint)"/,'no duplicate header actions');
-  assert.match(html,/>プリント準備<\/button>/);
+  assert.equal(html.match(/<button id="step4"[^>]*>([\s\S]*?)<\/button>/)[1].replace(/<[^>]*>/g,''),'プリント準備');
   await node('step1').handlers.click();
   job.stage='printing';context.window.SkeleCADWorkflow.restoreJob(job);
   assert.equal(node('step1').dataset.current,'true','a worker stage change does not steal the viewed stage');
@@ -206,6 +222,6 @@ const flush=()=>new Promise(resolve=>setImmediate(resolve));
   select.value='legacy';select.handlers.change();
   delete job.mechanical_revision;job.stage='generating';catalog=[job];select.value='job:'+id;timers.shift()();await flush();
   await node('generationStop').handlers.click();assert.ok(requests.some(r=>r.url.endsWith('/cancel')));assert.equal(select.value,'legacy');assert.equal(node('generationProgress').hidden,true);
-  console.log('PASS: drag/drop-only import, queue feedback, source isolation, hash-manifest load, no refresh loop or background selection hijack');
+  console.log('PASS: desktop drag/drop and mobile image-area import, queue feedback, source isolation, hash-manifest load, no refresh loop or background selection hijack');
   console.log('PASS: background machining adoption, reversible partition, fixed print action navigates to joints and model switching');
 })().catch(error=>{console.error(error);process.exitCode=1;});

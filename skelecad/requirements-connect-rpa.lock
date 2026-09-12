@@ -1,0 +1,6 @@
+# Isolated Bambu Connect import/print worker; not a viewer/server dependency.
+pywinauto==0.6.9
+comtypes==1.4.16
+pywin32==312
+six==1.17.0
+Pillow==12.3.0

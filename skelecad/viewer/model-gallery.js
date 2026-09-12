@@ -30,7 +30,7 @@ function createModelGallery(){
   function placeholder(){const value=document.createElement('span');value.className='modelCardPlaceholder';value.textContent='◇';value.setAttribute('aria-hidden','true');return value;}
   function imageFor(url){
     if(!url)return placeholder();
-    const image=document.createElement('img');image.className='modelCardImage';image.src=url;image.alt='';image.addEventListener('error',()=>image.replaceWith(placeholder()));return image;
+    const image=document.createElement('img');image.className='modelCardImage';image.loading='lazy';image.decoding='async';image.src=url;image.alt='';image.addEventListener('error',()=>image.replaceWith(placeholder()));return image;
   }
   function cardText(nameValue){
     const text=document.createElement('span');text.className='modelCardText';const name=document.createElement('span');name.className='modelCardName';name.textContent=nameValue;
@@ -57,7 +57,7 @@ function createModelGallery(){
       const card=document.createElement('article');card.className='modelCard';
       const content=document.createElement('div');content.className='modelCardSelect';const footer=cardText(job.name||'3Dモデル');footer.className+=' modelCardTextWithAction';
       const restore=document.createElement('button');restore.type='button';restore.className='modelCardRestore';restore.dataset.id=job.id;restore.textContent='復元';restore.setAttribute('aria-label',(job.name||'3Dモデル')+'を復元');footer.append(restore);
-      content.append(imageFor(thumbnails['job:'+job.id]||'../api/trash/'+job.id+'/files/source.png'),footer);card.append(content);list.append(card);
+      content.append(imageFor(thumbnails['job:'+job.id]||'../api/trash/'+job.id+'/files/source.png?thumbnail=1'),footer);card.append(content);list.append(card);
     }
   }
   function refresh(){if(trashMode)renderTrash();else renderMain();}

@@ -1,0 +1,14 @@
+{
+  "transport": "bambu_connect",
+  "name": "A1 mini (3DP-030-654)",
+  "model": "A1 mini",
+  "printer_label": "3DP-030-654",
+  "material": "PLA",
+  "spool": "external",
+  "use_ams": false,
+  "options": {
+    "Timelapse": "Off",
+    "Bed leveling": "On",
+    "Flow dynamic calibration": "On"
+  }
+}

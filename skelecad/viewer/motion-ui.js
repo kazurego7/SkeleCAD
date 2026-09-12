@@ -5,7 +5,7 @@ function createArticulation(api){
   let joints=[],angles={},displayPose={},matrices={},selected='',selectedPart='',worker=null,ready=false,active=false,failed=false,token=0,sequence=0;
   let inFlight=null,queued=null,dragging=false,twisting=false,marks=new Float32Array(),marksVersion=0,updates=0;
   let circleGesture=null;
-  let parked=null,workerKey=null,previewOnly=false;
+  let parked=null,workerKey=null,previewOnly=false,precisionPending=false;
   function clearMarks(){marks=new Float32Array();marksVersion++;result.hidden=true;result.textContent='';canvas.dataset.collisionPairCount='0';}
   function updateSelection(){
     selectionInfo.hidden=!active||!selectedPart;
@@ -26,7 +26,7 @@ function createArticulation(api){
     canvas.dataset.requestedPose=JSON.stringify(pose);
     // Never debounce until pointer-up: run one check and keep only the newest
     // queued pose. Every finished check is eligible to be displayed.
-    if(failed){matrices=queued.matrices;displayPose=pose;updateSelection();canvas.dataset.jointPose=JSON.stringify(pose);queued=null;api.requestRender();return;}
+    if(failed||precisionPending){matrices=queued.matrices;displayPose=pose;updateSelection();canvas.dataset.jointPose=JSON.stringify(pose);queued=null;api.requestRender();return;}
     pump();
   }
   function clear(){
@@ -34,14 +34,14 @@ function createArticulation(api){
     token++;
     if(worker&&ready&&!failed&&workerKey){parked?.worker.terminate();parked={worker,key:workerKey};}
     else worker?.terminate();
-    worker=null;workerKey=null;ready=false;active=false;failed=false;previewOnly=false;dragging=false;twisting=false;inFlight=null;queued=null;
+    worker=null;workerKey=null;ready=false;active=false;failed=false;previewOnly=false;precisionPending=false;dragging=false;twisting=false;inFlight=null;queued=null;
     joints=[];angles={};displayPose={};matrices={};selected='';selectedPart='';updates=0;clearMarks();updateSelection();
     canvas.dataset.motionEnabled='false';canvas.dataset.collisionState='inactive';canvas.dataset.draggingJoint='false';
     for(const name of ['selectedJoint','partGesture','jointPose','requestedPose','collisionRevision','poseRevision','collisionComputeMs','collisionUpdates','collisionUpdatesDuringDrag','collisionLastDragState'])delete canvas.dataset[name];
     api.onStateChange?.();
   }
   async function prepare(){
-    const response=await fetch('../config/parameters.json',{cache:'no-store'});
+    const response=await fetch('../config/parameters.json',{cache:'default'});
     if(!response.ok)throw new Error('関節設定を読み込めません');
     return response.json();
   }
@@ -85,6 +85,16 @@ function createArticulation(api){
       canvas.dataset.preservedJointCount=String(preserved);
       active=true;canvas.dataset.motionEnabled='true';canvas.dataset.selectedJoint=selected;canvas.dataset.jointPose=JSON.stringify(angles);
       updateSelection();api.requestRender();
+      if(items.some(item=>item.detail==='preview')){
+        // Keep the light display interactive while exact collision geometry arrives.
+        // Never declare a low-detail mesh collision-free or ready for review.
+        precisionPending=true;canvas.dataset.collisionState='preparing';
+        status.hidden=false;status.textContent='軽量表示中 · 衝突判定用の精密形状を読み込み中…';
+        items=await Promise.all(items.map(item=>window.SkeleMeshCache.loadExact({path:item.part.path,part:item.part})));
+        if(current!==token)return;
+        if(items.some(item=>item.detail==='preview'))throw new Error('精密形状を読み込めません');
+        precisionPending=false;
+      }
       workerKey=items.every(item=>/^[0-9a-f]{64}$/.test(item.sha256||''))?
         JSON.stringify({parts:items.map(item=>[item.part.name,item.sha256]),joints,intentionalContactRadius}):null;
       const reused=Boolean(workerKey&&parked?.key===workerKey);
@@ -144,7 +154,10 @@ function createArticulation(api){
       }
       if(projected.length===8){
         const lo=[0,1].map(k=>Math.min(...projected.map(p=>p[k]))),hi=[0,1].map(k=>Math.max(...projected.map(p=>p[k])));
-        const cx=(lo[0]+hi[0])/2,cy=(lo[1]+hi[1])/2,radius=Math.max(20,Math.max(hi[0]-lo[0],hi[1]-lo[1])*.33);
+        const cx=(lo[0]+hi[0])/2,cy=(lo[1]+hi[1])/2;
+        // Keep the bend region inside the short dimension so slender parts
+        // still have a reachable outer region for twisting, including on phones.
+        const radius=Math.max(6,Math.min(Math.min(hi[0]-lo[0],hi[1]-lo[1])*.28,Math.min(rect.width,rect.height)*.08));
         const circular=!twisting&&Math.hypot(e.clientX-cx,e.clientY-cy)>=radius;
         const worldAxis=C.vector(matrices[joint.parent]||C.identity(),joint.axes[2]);
         const facing=worldAxis.reduce((s,v,k)=>s+v*forward[k],0);

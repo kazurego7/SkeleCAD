@@ -13,19 +13,21 @@
 
   const returnToPartition=document.getElementById('returnToPartition');
   const printState=document.getElementById('printState');
+  function isRemote(){return !['localhost','127.0.0.1','[::1]'].includes(window.location?.hostname||'localhost');}
+  function printLabel(){return isRemote()?'プリント開始':'プリント準備';}
   const jobs=new Map();let token=null,uploading=false,depth=0,lastLoaded=null;
   const manifestCache=new Map();let prefetched=null;
   function readManifest(job,filename){
     const key=job.id+':'+job.manifest_sha256+':'+filename;
     if(!manifestCache.has(key)){
-      const promise=request('jobs/'+job.id+'/files/'+filename).catch(error=>{manifestCache.delete(key);throw error;});
+      const promise=request('jobs/'+job.id+'/files/'+filename,{cache:'default'}).catch(error=>{manifestCache.delete(key);throw error;});
       manifestCache.set(key,promise);
       if(manifestCache.size>12)manifestCache.delete(manifestCache.keys().next().value);
     }
     return manifestCache.get(key);
   }
   async function prefetchStages(job){
-    if(!window.SkeleMeshCache||!job?.manifest||window.SkelePartition?.hasPendingChanges())return;
+    if(!window.SkeleMeshCache||window.SkeleMeshCache.canPrefetch?.()===false||!job?.manifest||window.SkelePartition?.hasPendingChanges())return;
     const key=job.id+':'+job.manifest_sha256+':'+(job.background?.manifest_sha256||'');if(prefetched===key)return;prefetched=key;
     try{
       const preview=await readManifest(job,'manifest.json');
@@ -70,6 +72,7 @@
     return viewedStep===3?base+':'+(job.background?.stage||'')+':'+(job.background?.manifest_sha256||'')+':'+(job.background?.preview?.manifest_sha256||'')+':'+JSON.stringify(job.previous_motion||null)+':'+JSON.stringify(window.SkelePartition?.pendingMarkers?.()||null):base;
   }
   function stepControls(job){
+    const printText=document.getElementById('printStepActionText');if(printText)printText.textContent=isRemote()?'開始':'準備';
     if(viewedJob!==job?.id){viewedJob=job?.id;viewedStep=null;lastStage=null;}
     lastStage=job?.stage;
     const step=viewedStep??currentStep(job),busy=job&&active.has(job.stage);
@@ -78,7 +81,8 @@
     const pending=Boolean(window.SkelePartition?.hasPendingChanges());
     const failed=Boolean(job?.error)||partitionFailed||job?.stage?.endsWith('_failed')||job?.background?.stage==='print_failed';
     const preparingBackground=['working','mechanical_ready'].includes(job?.background?.stage);
-    const canPrepare=Boolean(job?.mechanical_revision||job?.background?.stage==='ready')&&!busy&&!pending&&!failed&&!preparingBackground;
+    const retryRemote=isRemote()&&job?.stage==='print_failed'&&!partitionFailed&&!['failed','print_failed'].includes(job?.background?.stage);
+    const canPrepare=Boolean(job?.mechanical_revision||job?.background?.stage==='ready')&&!busy&&!pending&&(!failed||retryRemote)&&!preparingBackground;
     const available=[true,Boolean(job?.manifest),Boolean(job?.manifest),canVisitJoints,canPrepare];
     const running=Boolean(busy&&job.stage!=='paused');
     const operation=job?.operation;
@@ -99,12 +103,13 @@
       button.setAttribute?.('aria-current',i===step?'step':'false');
       button.title=loading[i]?(button.disabled?'準備中':'準備中 · この工程へ移動できます'):button.disabled?'前の工程を完了すると開けます':i===4?'準備済みデータをBambu Studioで開く':'この工程を表示';
       if(warning)button.title=canVisitJoints?'分割にエラーがあります。確定済みの部分だけ可動域を確認できます':'分割にエラーがあります。確認できる可動域はまだありません';
-      if(i===4&&!canPrepare)button.title=failed?'エラーを解消するとプリント準備へ進めます':'処理がすべて完了するとプリント準備へ進めます';
+      if(i===4&&!canPrepare)button.title=(failed?'エラーを解消すると':'処理がすべて完了すると')+printLabel()+'へ進めます';
+      if(i===4&&canPrepare&&isRemote())button.title='プリンターで印刷を開始（確認画面を表示）';
     });
     const tools=document.getElementById('workflowTools');if(tools)tools.hidden=![1,2,3].includes(step)||!job?.manifest;
     if(imagePanel)imagePanel.hidden=step!==0;
     document.documentElement?.setAttribute('data-workflow-step',String(step));
-    if(sourceImage){sourceImage.hidden=!job;if(job)sourceImage.src=api+'jobs/'+job.id+'/files/source.png';}
+    if(sourceImage){sourceImage.hidden=!job;if(job&&step===0){const url=api+'jobs/'+job.id+'/files/source.png?display=1';if(sourceImage.dataset.sourceUrl!==url){sourceImage.fetchPriority='high';sourceImage.src=url;sourceImage.dataset.sourceUrl=url;}}}
     if(hint)hint.textContent=busy?'処理中 · '+job.message:[job?'元画像を確認できます。':'画像をドロップして制作を始めましょう。','外観を確認して、分割位置を決めましょう。','マーカーを直接編集できます。変更するとジョイントの再加工が必要です。','ジョイントを動かして確認し、プリント準備へ進みましょう。',job?.stage==='print_ready'?'準備完了 · この工程をクリックするとBambu Studioで開きます。':'この工程をクリックすると印刷ファイルを準備し、完了後にBambu Studioで開きます。'][step];
     if(hint&&!busy&&step===2&&job?.background?.stage==='working')hint.textContent='マーカーはそのまま編集できます。ジョイントを先に準備しています。';
     if(hint&&!busy&&step===2&&job?.background?.revision)hint.textContent='マーカーはそのまま編集できます。ジョイント工程は準備済みです。';
@@ -173,7 +178,7 @@
     if(job.stage==='paused')option.textContent=job.name+' · 一時停止中';
     if(job.mechanical_revision)option.textContent=job.name+' · '+(job.stage==='print_ready'?'印刷準備完了':'可動確認');
     option.dataset.description=job.message;
-    option.dataset.thumbnail='../api/jobs/'+job.id+'/files/source.png';
+    option.dataset.thumbnail='../api/jobs/'+job.id+'/files/source.png?thumbnail=1';
     if(modelSelect.value===value){
       if(viewedStep===null||viewedStep>=3||job.error)message(job.message+(job.error?' '+job.error:''));
       showProgress(job);
@@ -240,7 +245,7 @@
     if(job.stage==='print_ready')return openPrepared(job);
     const review=motion?.reviewState();
     if(!['mechanical_review','print_failed'].includes(job.stage)||!review?.ready||review.collision!=='clear'){
-      message('ジョイント工程で食い込みがないことを確認してから、プリント準備を押してください。');return;
+      message('ジョイント工程で食い込みがないことを確認してから、'+printLabel()+'を押してください。');return;
     }
     preparing=true;controls();message('印刷ファイルを準備します。完了後にBambu Studioで開きます。');
     pendingOpen={id:job.id,revision:job.mechanical_revision};
@@ -262,6 +267,7 @@
     finally{opening=false;controls();}
   }
   input.addEventListener('change',()=>{if(input.files[0])uploadFile(input.files[0]);});
+  imagePanel?.addEventListener('click',()=>{if(window.SkeleMobile?.isActive()&&!uploading)input.click();});
   stepButtons.forEach((button,index)=>button?.addEventListener('click',async()=>{
     const i=index===4?3:index;
     const job=jobs.get(modelSelect.value.replace(/^job:/,''));if(button.disabled)return;
@@ -279,14 +285,19 @@
       }
       if(index===4){
         const current=jobs.get(job.id);
-        if(current.stage!=='print_ready'&&!alreadyViewingMotion){
+        if((isRemote()||current.stage!=='print_ready')&&!alreadyViewingMotion){
           await loadModel('job:'+job.id);
           for(let n=0;n<100&&!motion?.reviewState()?.ready;n++){
             if(visit!==navigation||modelSelect.value!=='job:'+job.id)return;
             await new Promise(resolve=>setTimeout(resolve,50));
           }
         }
-        if(visit===navigation&&modelSelect.value==='job:'+job.id)await prepareAndOpen(current);
+        if(visit===navigation&&modelSelect.value==='job:'+job.id){
+          if(isRemote()){
+            const revision=current.manifest_sha256;
+            await window.SkeleRemotePrint.open(current,motion?.reviewState(),()=>visit===navigation&&modelSelect.value==='job:'+job.id&&jobs.get(job.id)?.manifest_sha256===revision&&!window.SkelePartition?.hasPendingChanges());
+          }else await prepareAndOpen(current);
+        }
         return;
       }
       await loadModel('job:'+job.id);if(i===2&&visit===navigation&&modelSelect.value==='job:'+job.id)window.SkelePartition?.begin();
@@ -316,7 +327,7 @@
   window.addEventListener('drop',e=>{e.preventDefault();depth=0;drop.hidden=true;const files=e.dataTransfer?.files;
     if(files?.length!==1){uploadMessage('画像を1枚ずつドロップしてください。');return;}uploadFile(files[0]);});
   modelSelect.addEventListener('change',()=>{lastLoaded=null;remember();const job=jobs.get(modelSelect.value.replace(/^job:/,''));message(job?.message||'');showProgress(job);controls();});
-  window.SkeleCADWorkflow={refreshControls:controls,ensureEditable,
+  window.SkeleCADWorkflow={refreshControls:controls,ensureEditable,printLabel,
     stateKey(id){const job=jobs.get(id),symmetry=job?.appearance_symmetry;return 'job:'+id+':'+(symmetry?.active?symmetry.source_side:'original');},
     modelLoaded(){const job=jobs.get(modelSelect.value.replace(/^job:/,''));if((viewedStep??currentStep(job))===2)window.SkelePartition?.begin();void prefetchStages(job);},
     restoreJob(job){apply(job,false);window.SkeleModelGallery?.refresh?.();},
@@ -381,7 +392,8 @@
       }
     }
     catch(error){if(Array.from(jobs.values()).some(j=>active.has(j.stage)))message('生成状態を取得できません。接続を再確認しています。');}
-    setTimeout(refresh,2000);
+    const busy=Array.from(jobs.values()).some(j=>active.has(j.stage)||['working','mechanical_ready'].includes(j.background?.stage));
+    setTimeout(refresh,document.hidden?30000:busy?2000:10000);
   }
   controls();
   refresh();

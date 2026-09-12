@@ -220,10 +220,11 @@ function render(){
 }
 const motionContinuity=new Map();
 async function loadModel(path){
-  if(!path){++loadId;releaseMesh();updatePartState();canvas.dataset.model='';canvas.dataset.loaded='false';status.hidden=true;requestRender();return;}
+  if(!path){++loadId;window.SkeleMeshCache?.retainSources?.([]);releaseMesh();updatePartState();canvas.dataset.model='';canvas.dataset.loaded='false';status.hidden=true;status.dataset.loading='false';requestRender();return;}
   const started=performance.now(),id=++loadId,preserveView=canvas.dataset.model===path&&Boolean(mesh),previousMesh=mesh,preserveMesh=preserveView&&Boolean(previousMesh);
   status.hidden=true;
-  const loadingTimer=setTimeout(()=>{if(id===loadId){status.hidden=false;status.textContent='モデルを読み込み中…';}},150);
+  let loadingText='モデルを読み込み中…',completedParts=0;
+  const loadingTimer=setTimeout(()=>{if(id===loadId){status.dataset.loading='true';status.hidden=false;status.textContent=loadingText;}},150);
   if(!preserveMesh){canvas.dataset.loaded='false';releaseMesh();updatePartState();requestRender();canvas.dataset.model='';}
   const selected=Array.from(modelSelect.options).find(item=>item.value===path);
   modelSelect.title=selected?.dataset.description||'生成したモデル';
@@ -235,17 +236,24 @@ async function loadModel(path){
       if(!manifest){status.hidden=true;return;}
       sources=manifest.parts.map(part=>({path:part.path,part}));
     }
+    window.SkeleMeshCache?.retainSources?.(sources);
+    loadingText='モデルを読み込み中… 0 / '+sources.length+' 部品';
+    if(id===loadId&&!status.hidden)status.textContent=loadingText;
     const key=renderKey(sources),cached=key?renderCache.get(key):null;
     if(cached){renderCache.delete(key);renderCache.set(key,cached);}
     const items=cached?.items||await Promise.all(sources.map(async item=>{
       if(window.SkeleMeshCache)return window.SkeleMeshCache.load(item);
-      const response=await fetch(item.path,{cache:'no-store'});if(!response.ok)throw new Error('読み込みエラー '+response.status);
+      const response=await fetch(item.path,{cache:'default'});if(!response.ok)throw new Error('読み込みエラー '+response.status);
       const bytes=await response.arrayBuffer();
       const sha256=Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256',bytes)),b=>b.toString(16).padStart(2,'0')).join('');
       if(item.part?.sha256&&sha256!==item.part.sha256)throw new Error('生成データの照合に失敗しました');
       return {part:item.part,mesh:parseSTL(bytes),sha256};
-    }));
+    }).map(promise=>promise.then(item=>{
+      if(id===loadId){loadingText='モデルを読み込み中… '+(++completedParts)+' / '+sources.length+' 部品';if(!status.hidden)status.textContent=loadingText;}
+      return item;
+    })));
     if(id!==loadId)return;
+    loadingText='表示を準備中…';if(!status.hidden)status.textContent=loadingText;
     // Keep the current model interactive while the next model/config is fetched.
     const preparedParameters=manifest?.joints?.length?await motion?.prepare?.():null;
     if(id!==loadId)return;
@@ -266,20 +274,28 @@ async function loadModel(path){
     if(preserveMesh)disposeMesh(previousMesh);
     mesh=next;trimRenderCache();updatePartState();if(preserveView)requestRender();else resetView();window.SkelePartition?.modelLoaded();window.SkeleCADWorkflow?.modelLoaded?.();status.hidden=true;canvas.dataset.loaded='true';canvas.dataset.model=path;
     canvas.dataset.partHashes=JSON.stringify(items.map(item=>({part:item.part?.name||'single',sha256:item.sha256})));
+    canvas.dataset.meshDetail=items.some(item=>item.detail==='preview')?'preview':'full';
     canvas.dataset.stateKey=stateKey;
     motion?.load(path,items,manifest,{parameters:preparedParameters,continuity:motionContinuity.get(stateKey)});
     snapshots?.sync();
     canvas.dataset.loadMilliseconds=(performance.now()-started).toFixed(1);
     canvas.dataset.renderCacheHit=String(Boolean(cached));canvas.dataset.renderCacheBytes=String(renderCacheBytes);
   }catch(error){if(id===loadId){status.hidden=false;status.textContent='モデルを開けませんでした：'+error.message;}}
-  finally{clearTimeout(loadingTimer);}
+  finally{clearTimeout(loadingTimer);if(id===loadId)status.dataset.loading='false';}
 }
 function span(){const [a,b]=[...pointers.values()];return a&&b?Math.hypot(a.x-b.x,a.y-b.y):0;}
 const wrapAngle=a=>Math.atan2(Math.sin(a),Math.cos(a));
 function pointerAngle(){const [a,b]=[...pointers.values()];return a&&b?Math.atan2(b.y-a.y,b.x-a.x):0;}
+function pointerMidpoint(){const [a,b]=[...pointers.values()];return a&&b?[(a.x+b.x)/2,(a.y+b.y)/2]:null;}
+function panCamera(dx,dy){
+  const camera=cameraParameters(),forward=normalize(camera.center.map((v,k)=>v-camera.eye[k])),right=normalize(cross(forward,camera.up));
+  const units=2*distance*Math.tan(camera.fov/2)/Math.max(1,canvas.clientHeight);
+  center=center.map((v,k)=>v-dx*units*right[k]+dy*units*camera.up[k]);
+}
 function screenPoint(x,y){const r=canvas.getBoundingClientRect();return [x-r.left-r.width/2,y-r.top-r.height/2];}
 function dragMode(x,y,button=0){
   if(button===1)return 'pan';
+  if(window.SkeleMobile?.isActive())return 'orbit';
   const p=screenPoint(x,y),r=canvas.getBoundingClientRect();return Math.hypot(p[0]/(r.width/2),p[1]/(r.height/2))>.72?'roll':'orbit';
 }
 canvas.addEventListener('pointerdown',e=>{
@@ -287,20 +303,18 @@ canvas.addEventListener('pointerdown',e=>{
   e.preventDefault();pointers.set(e.pointerId,{x:e.clientX,y:e.clientY,startX:e.clientX,startY:e.clientY,button:e.button});canvas.setPointerCapture(e.pointerId);
   canvas.focus({preventScroll:true});
   if(pointers.size===1){cameraDragMode=dragMode(e.clientX,e.clientY,e.button);if(e.button===0)motion?.pointerDown(e);}
-  else motion?.pointerEnd();
+  else {for(const pointer of pointers.values())pointer.multi=true;motion?.pointerEnd();}
   requestRender();
 });
 canvas.addEventListener('pointermove',e=>{
   const old=pointers.get(e.pointerId);if(!old)return;
-  const before=span(),beforeAngle=pointerAngle();pointers.set(e.pointerId,{...old,x:e.clientX,y:e.clientY});
-  if(pointers.size===2){const after=span();if(before>4&&after>4){roll=wrapAngle(roll-wrapAngle(pointerAngle()-beforeAngle));zoom(before/after);}}
+  const before=span(),beforeAngle=pointerAngle(),beforeMidpoint=pointerMidpoint();pointers.set(e.pointerId,{...old,x:e.clientX,y:e.clientY});
+  if(pointers.size===2){const after=span();if(before>4&&after>4){roll=wrapAngle(roll-wrapAngle(pointerAngle()-beforeAngle));zoom(before/after);}if(window.SkeleMobile?.isActive()){const midpoint=pointerMidpoint();panCamera(midpoint[0]-beforeMidpoint[0],midpoint[1]-beforeMidpoint[1]);requestRender();}}
   else if(pointers.size===1){
     const dx=e.clientX-old.x,dy=e.clientY-old.y;
     if(motion?.pointerMove(dx,dy))return;
     if(cameraDragMode==='pan'){
-      const camera=cameraParameters(),forward=normalize(camera.center.map((v,k)=>v-camera.eye[k])),right=normalize(cross(forward,camera.up));
-      const units=2*distance*Math.tan(camera.fov/2)/Math.max(1,canvas.clientHeight);
-      center=center.map((v,k)=>v-dx*units*right[k]+dy*units*camera.up[k]);
+      panCamera(dx,dy);
     }else if(cameraDragMode==='roll'){
       const a=screenPoint(old.x,old.y),b=screenPoint(e.clientX,e.clientY);
       if(Math.hypot(...a)>20&&Math.hypot(...b)>20)roll=wrapAngle(roll-wrapAngle(Math.atan2(b[1],b[0])-Math.atan2(a[1],a[0])));
@@ -343,7 +357,7 @@ function start(){
     if(typeof createArticulation==='function')motion=createArticulation({canvas,parts:[],mesh:()=>mesh,camera:cameraParameters,normalize,cross,requestRender,onStateChange:()=>snapshots?.sync()});
     if(typeof createPoseSnapshots==='function')snapshots=createPoseSnapshots({canvas,motion:()=>motion,model:()=>canvas.dataset.stateKey||canvas.dataset.model||modelSelect.value,unscopedModel:()=>canvas.dataset.model,camera:cameraState,setCamera:restoreCamera,resetView,capture:capturePreview,requestRender});
     requestRender();
-  }catch(error){status.hidden=false;status.textContent=error.message;}
+  }catch(error){status.dataset.loading='false';status.hidden=false;status.textContent=error.message;}
 }
 window.SkeleViewer={projectWorld,raycastSurface,snapCandidateToMidline,reflectPoint,mirrorCandidate,requestRender,capturePreview};
 start();
