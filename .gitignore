@@ -5,6 +5,8 @@
 /skelecad/backups/
 /skelecad/.runtime/
 /skelecad/assets/image_to_3d/
+/skelecad/concepts/
+/result.json
 .env
 .env.*
 !.env.example
