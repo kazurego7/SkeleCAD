@@ -154,7 +154,7 @@ const flush=()=>new Promise(resolve=>setImmediate(resolve));
   assert.equal(node('step3').dataset.current,'true','prepared jobs also navigate to joints');
   assert.ok(requests.some(r=>r.url.endsWith('/open-print')),'prepared print action opens Bambu Studio');
   const localPosts=requests.filter(r=>r.method==='POST').length;let directCalls=0;
-  context.window.location={hostname:'pc-win.tail5f79dc.ts.net'};
+  context.window.location={hostname:'viewer.test-tailnet.ts.net'};
   context.window.SkeleRemotePrint={async open(remoteJob,review,isCurrent){directCalls++;assert.equal(remoteJob.id,id);assert.equal(review.collision,'clear');assert.equal(isCurrent(),true);}};
   context.window.SkeleCADWorkflow.refreshControls();
   assert.equal(node('printStepActionText').textContent,'開始');
