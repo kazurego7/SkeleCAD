@@ -1,8 +1,12 @@
 'use strict';
 function createPoseSnapshots(api){
   const panel=document.getElementById('poseSnapshots'),list=document.getElementById('snapshotList'),flash=document.getElementById('snapshotFlash');
-  const storageKey='skelecad.poseSnapshots.v1',maximum=30;let allItems=read(),defaultModel=String(api.model()||''),items=allItems.filter(item=>item.model===defaultModel),activeId=null,flashTimer=null;
+  const storageKey='skelecad.poseSnapshots.v1',maximum=30;let allItems=typeof createSharedSnapshotStore==='function'?[]:read(),defaultModel=String(api.model()||''),items=allItems.filter(item=>item.model===defaultModel),activeId=null,flashTimer=null;
   const deleteDistance=80,touchPointers=new Set();let cardDrag=null,suppressClickUntil=0;
+  const shared=typeof createSharedSnapshotStore==='function'?createSharedSnapshotStore({
+    isEditing:()=>Boolean(cardDrag),
+    onChange(value){allItems=value;items=allItems.filter(item=>item.model===defaultModel).sort((a,b)=>(a.order??0)-(b.order??0));if(!items.some(item=>item.id===activeId))activeId=null;render();}
+  }):null;
   function cancelDrag(){
     if(!cardDrag)return;
     cardDrag.card.classList?.remove('dragging');cardDrag.ghost?.remove();cardDrag.hint?.remove();
@@ -19,14 +23,16 @@ function createPoseSnapshots(api){
   function write(){
     try{
       items.forEach((item,index)=>item.order=index);
-      allItems=[...allItems.filter(item=>item.model!==defaultModel),...items];
+      const next=[...allItems.filter(item=>item.model!==defaultModel),...items];
+      if(shared){if(!shared.write(next))return false;allItems=next;return true;}
+      allItems=next;
       localStorage.setItem(storageKey,JSON.stringify(allItems));return true;
     }catch(_){return false;}
   }
   function escapeText(value){return String(value).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
   function card(item,number){
     const selected=activeId===item.id?' aria-current="true"':'',label=`スナップショット${number}`;
-    return `<article class="snapshotCard" data-id="${escapeText(item.id)}"${selected} draggable="false"><button class="snapshotRestore" type="button" aria-label="${label}を復元">${item.image?`<img src="${item.image}" alt="${label}のプレビュー" draggable="false">`:'<span class="snapshotPlaceholder" aria-hidden="true"></span>'}</button></article>`;
+    return `<article class="snapshotCard" data-id="${escapeText(item.id)}"${selected} draggable="false"><button class="snapshotRestore" type="button" aria-label="${label}を復元">${item.image?`<img src="${escapeText(item.image)}" alt="${label}のプレビュー" draggable="false">`:'<span class="snapshotPlaceholder" aria-hidden="true"></span>'}</button></article>`;
   }
   function addCard(){return `<article class="snapshotCard snapshotAddCard" data-id="add"><button class="snapshotAdd" type="button" aria-label="スナップショットを撮影"${items.length>=maximum?' disabled':''}><svg class="snapshotCameraIcon" aria-hidden="true" viewBox="0 0 32 32"><path d="M10 8.5 12.2 5h7.6L22 8.5h4.5A2.5 2.5 0 0 1 29 11v13.5a2.5 2.5 0 0 1-2.5 2.5h-21A2.5 2.5 0 0 1 3 24.5V11a2.5 2.5 0 0 1 2.5-2.5H10Zm6 3.5a6 6 0 1 0 0 12 6 6 0 0 0 0-12Zm0 2.5a3.5 3.5 0 1 1 0 7 3.5 3.5 0 0 1 0-7Z"/></svg></button></article>`;}
   function render(){
@@ -39,7 +45,7 @@ function createPoseSnapshots(api){
     const active=Boolean(api.motion()?.isActive());panel.hidden=!active;if(!active){cancelDrag();return;}
     const model=String(api.model()||'');
     const unscoped=api.unscopedModel?.();
-    if(unscoped&&unscoped!==model&&allItems.some(item=>item.model===unscoped)){
+    if(!shared&&unscoped&&unscoped!==model&&allItems.some(item=>item.model===unscoped)){
       allItems=allItems.map(item=>item.model===unscoped?{...item,model}:item);
       try{localStorage.setItem(storageKey,JSON.stringify(allItems));}catch(_){}
       defaultModel='';
@@ -145,9 +151,13 @@ if(typeof module!=='undefined')module.exports={createPoseSnapshots};
 'use strict';
 function createMobilePoseSnapshots(api){
   const panel=document.getElementById('poseSnapshots'),list=document.getElementById('snapshotList'),flash=document.getElementById('snapshotFlash');
-  const storageKey='skelecad.poseSnapshots.v1',maximum=30;let allItems=read(),defaultModel=String(api.model()||''),items=allItems.filter(item=>item.model===defaultModel),activeId=null,flashTimer=null;
+  const storageKey='skelecad.poseSnapshots.v1',maximum=30;let allItems=typeof createSharedSnapshotStore==='function'?[]:read(),defaultModel=String(api.model()||''),items=allItems.filter(item=>item.model===defaultModel),activeId=null,flashTimer=null;
   const editor=document.getElementById('snapshotEditor'),grid=document.getElementById('snapshotEditorGrid'),scroller=document.getElementById('snapshotEditorScroll'),editorStatus=document.getElementById('snapshotEditorStatus');
   const pendingDeletes=new Set(),touchPointers=new Set();let cardDrag=null,suppressClickUntil=0,draft=null,editModel=null,holdTimer=null,scrollFrame=null,focusBefore=null;
+  const shared=typeof createSharedSnapshotStore==='function'?createSharedSnapshotStore({
+    isEditing:()=>Boolean(cardDrag||draft),
+    onChange(value){allItems=value;items=allItems.filter(item=>item.model===defaultModel).sort((a,b)=>(a.order??0)-(b.order??0));if(!items.some(item=>item.id===activeId))activeId=null;render();}
+  }):null;
   function cancelDrag(){
     clearTimeout(holdTimer);holdTimer=null;
     if(scrollFrame!==null){cancelAnimationFrame(scrollFrame);scrollFrame=null;}
@@ -159,7 +169,7 @@ function createMobilePoseSnapshots(api){
   }
   function editorRender(){
     grid.innerHTML=draft.map((item,index)=>`<article class="snapshotEditCard${pendingDeletes.has(item.id)?' pendingDelete':''}" data-id="${escapeText(item.id)}">
-      <button class="snapshotEditImage" type="button" aria-label="スナップショット${index+1}を長押しして移動">${item.image?`<img src="${item.image}" alt="スナップショット${index+1}" draggable="false">`:'<span class="snapshotPlaceholder"></span>'}</button>
+      <button class="snapshotEditImage" type="button" aria-label="スナップショット${index+1}を長押しして移動">${item.image?`<img src="${escapeText(item.image)}" alt="スナップショット${index+1}" draggable="false">`:'<span class="snapshotPlaceholder"></span>'}</button>
       <button class="snapshotEditDelete" type="button" aria-label="スナップショット${index+1}${pendingDeletes.has(item.id)?'の削除を取り消す':'を削除'}" aria-pressed="${pendingDeletes.has(item.id)}">${pendingDeletes.has(item.id)?'↶':'×'}</button>
       
     </article>`).join('');
@@ -167,6 +177,7 @@ function createMobilePoseSnapshots(api){
   }
   function openEditor(){
     if(draft||!api.motion()?.isActive()||!items.length)return;
+    if(shared&&!shared.writable())return;
     cancelDrag();pendingDeletes.clear();editModel=defaultModel;draft=items.map(item=>({...item}));focusBefore=document.activeElement;
     editorRender();editor.showModal();scroller.scrollTop=0;
     document.getElementById('snapshotEditorCancel').focus?.();
@@ -193,14 +204,16 @@ function createMobilePoseSnapshots(api){
   function write(){
     try{
       items.forEach((item,index)=>item.order=index);
-      allItems=[...allItems.filter(item=>item.model!==defaultModel),...items];
+      const next=[...allItems.filter(item=>item.model!==defaultModel),...items];
+      if(shared){if(!shared.write(next))return false;allItems=next;return true;}
+      allItems=next;
       localStorage.setItem(storageKey,JSON.stringify(allItems));return true;
     }catch(_){return false;}
   }
   function escapeText(value){return String(value).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
   function card(item,number){
     const selected=activeId===item.id?' aria-current="true"':'',label=`スナップショット${number}`;
-    return `<article class="snapshotCard" data-id="${escapeText(item.id)}"${selected} draggable="false"><button class="snapshotRestore" type="button" aria-label="${label}を復元">${item.image?`<img src="${item.image}" alt="${label}のプレビュー" draggable="false">`:'<span class="snapshotPlaceholder" aria-hidden="true"></span>'}</button></article>`;
+    return `<article class="snapshotCard" data-id="${escapeText(item.id)}"${selected} draggable="false"><button class="snapshotRestore" type="button" aria-label="${label}を復元">${item.image?`<img src="${escapeText(item.image)}" alt="${label}のプレビュー" draggable="false">`:'<span class="snapshotPlaceholder" aria-hidden="true"></span>'}</button></article>`;
   }
   function addCard(){return `<article class="snapshotCard snapshotAddCard" data-id="add"><button class="snapshotAdd" type="button" aria-label="スナップショットを撮影"${items.length>=maximum?' disabled':''}><svg class="snapshotCameraIcon" aria-hidden="true" viewBox="0 0 32 32"><path d="M10 8.5 12.2 5h7.6L22 8.5h4.5A2.5 2.5 0 0 1 29 11v13.5a2.5 2.5 0 0 1-2.5 2.5h-21A2.5 2.5 0 0 1 3 24.5V11a2.5 2.5 0 0 1 2.5-2.5H10Zm6 3.5a6 6 0 1 0 0 12 6 6 0 0 0 0-12Zm0 2.5a3.5 3.5 0 1 1 0 7 3.5 3.5 0 0 1 0-7Z"/></svg></button></article>`;}
   function render(){
@@ -213,7 +226,7 @@ function createMobilePoseSnapshots(api){
     const active=Boolean(api.motion()?.isActive());panel.hidden=!active;if(!active){cancelDrag();closeEditor(false);return;}
     const model=String(api.model()||'');
     const unscoped=api.unscopedModel?.();
-    if(unscoped&&unscoped!==model&&allItems.some(item=>item.model===unscoped)){
+    if(!shared&&unscoped&&unscoped!==model&&allItems.some(item=>item.model===unscoped)){
       allItems=allItems.map(item=>item.model===unscoped?{...item,model}:item);
       try{localStorage.setItem(storageKey,JSON.stringify(allItems));}catch(_){}
       defaultModel='';

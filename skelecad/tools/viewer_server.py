@@ -13,7 +13,7 @@ from viewer_delivery import accepts_gzip, representation
 
 PROJECT = Path(__file__).resolve().parents[1]
 FILES = {'viewer/index.html', 'viewer/app.js', 'viewer/style.css', 'config/parameters.json',
-         'viewer/remote-print-ui.js',
+         'viewer/remote-print-ui.js', 'viewer/snapshot-sync.js',
          'viewer/workflow-ui.js', 'viewer/partition-ui.js', 'viewer/motion-core.js', 'viewer/motion-ui.js',
          'viewer/model-gallery.js', 'viewer/pose-snapshots.js', 'viewer/collision-worker.js',
          'viewer/mesh-worker.js', 'viewer/mesh-cache.js', 'viewer/manifest.json', 'viewer/mobile.css', 'viewer/mobile-ui.js',
@@ -66,6 +66,9 @@ class ViewerHandler(BaseHTTPRequestHandler):
 
     def do_POST(self):
         path=self.route_path()
+        if path == '/api/snapshots':
+            self.save_snapshots()
+            return
         machine=re.fullmatch(r'/api/jobs/([0-9a-f]{32})/machine',path)
         partition=re.fullmatch(r'/api/jobs/([0-9a-f]{32})/partition',path)
         repartition=re.fullmatch(r'/api/jobs/([0-9a-f]{32})/repartition',path)
@@ -151,6 +154,33 @@ class ViewerHandler(BaseHTTPRequestHandler):
         self.send_header('Referrer-Policy', 'same-origin')
         super().end_headers()
 
+    def save_snapshots(self):
+        from snapshot_store import SnapshotConflict
+        if not self.api_allowed(mutate=True):
+            self.close_connection = True
+            self.json_response({'error': '保存の接続を確認してください。'}, 403)
+            return
+        try:
+            if (self.headers.get('Transfer-Encoding') or len(self.headers.get_all('Content-Length', [])) != 1
+                    or self.headers.get('Content-Type') != 'application/json'):
+                raise ValueError('保存リクエストが不正です。')
+            length = int(self.headers['Content-Length'])
+            if not 0 < length <= 32 * 1024 * 1024:
+                raise ValueError('スナップショットの容量が上限を超えています。')
+            self.connection.settimeout(30)
+            body = self.rfile.read(length)
+            if len(body) != length:
+                raise ValueError('送信が途中で止まりました。')
+            data = json.loads(body)
+            self.json_response(self.server.snapshots.write(data))
+        except SnapshotConflict as exc:
+            self.json_response({'error': str(exc)}, 409)
+        except (ValueError, UnicodeDecodeError, TimeoutError) as exc:
+            self.close_connection = True
+            self.json_response({'error': str(exc)}, 400)
+        except OSError:
+            self.json_response({'error': '共通の保存先に書き込めませんでした。'}, 503)
+
     def route_path(self):
         path = unquote(urlsplit(self.path).path)
         return path[len('/skelecad'):] if path.startswith('/skelecad/') else path
@@ -171,6 +201,13 @@ class ViewerHandler(BaseHTTPRequestHandler):
                 self.json_response({'error': 'ローカルのビュワーから開いてください。'}, 403, send_body)
                 return
             store = self.server.workflows
+            if path == '/api/snapshots':
+                try:
+                    since = parse_qs(urlsplit(self.path).query).get('since', [None])[0]
+                    self.json_response(self.server.snapshots.read(since), send_body=send_body)
+                except (OSError, ValueError):
+                    self.json_response({'error': '共通の一覧を読み込めませんでした。'}, 503, send_body)
+                return
             remote_status = re.fullmatch(r'/api/jobs/([0-9a-f]{32})/remote-print/([0-9a-f]{32})', path)
             if remote_status:
                 try:
@@ -320,6 +357,8 @@ def main():
     server.tailscale_host = args.tailscale_host
     from workflow_store import WorkflowStore
     server.workflows = WorkflowStore(root=args.workflow_root)
+    from snapshot_store import SnapshotStore
+    server.snapshots = SnapshotStore(server.workflows.root)
     from remote_print import RemotePrint
     server.remote_print = RemotePrint(server.workflows)
     server.workflow_token = secrets.token_urlsafe(32)

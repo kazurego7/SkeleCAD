@@ -1,4 +1,5 @@
 import http.client
+import json
 import gzip
 import hashlib
 import tempfile
@@ -30,9 +31,9 @@ class ViewerServerTests(unittest.TestCase):
         cls.server.server_close()
         cls.thread.join()
 
-    def request(self, path, method='GET', headers=None):
+    def request(self, path, method='GET', headers=None, body=None):
         conn = http.client.HTTPConnection('127.0.0.1', self.server.server_port, timeout=5)
-        conn.request(method, path, headers=headers or {})
+        conn.request(method, path, body=body, headers=headers or {})
         response = conn.getresponse()
         result = (response.status, dict(response.getheaders()), response.read())
         conn.close()
@@ -43,6 +44,29 @@ class ViewerServerTests(unittest.TestCase):
         self.assertEqual(status, 302)
         self.assertEqual(headers['Location'], './viewer/')
         self.assertEqual(self.request('/viewer/')[0], 200)
+
+    def test_shared_snapshot_api_auth_mount_and_revision(self):
+        from snapshot_store import SnapshotStore
+        with tempfile.TemporaryDirectory() as folder:
+            self.server.workflows = SimpleNamespace(root=Path(folder))
+            self.server.snapshots = SnapshotStore(folder)
+            self.server.tailscale_host = 'test.ts.net'
+            try:
+                path = '/skelecad/api/snapshots'
+                payload = json.dumps({'revision': 0, 'items': [{'schema': 1, 'id': 'test', 'model': 'test', 'joints': [], 'image': 'data:image/jpeg;base64,' + 'YQ==' * 20000}]})
+                headers = {'Content-Type': 'application/json'}
+                self.assertEqual(self.request(path, 'POST', headers, payload)[0], 403)
+                headers['X-SkeleCAD-Token'] = 'test-token'
+                self.assertEqual(self.request(path, 'POST', headers, payload)[0], 200)
+                self.assertEqual(self.request(path, 'POST', headers, payload)[0], 409)
+                status, _, body = self.request(path, headers={'Host': 'test.ts.net', 'Origin': 'https://test.ts.net'})
+                self.assertEqual(status, 200)
+                self.assertEqual(json.loads(body)['items'][0]['id'], 'test')
+                self.assertTrue(json.loads(self.request(path+'?since=1')[2])['unchanged'])
+                headers['Origin'] = 'https://untrusted.example'
+                self.assertEqual(self.request(path, 'POST', headers, payload)[0], 403)
+            finally:
+                del self.server.workflows, self.server.snapshots, self.server.tailscale_host
 
     def test_all_required_assets(self):
         for name in FILES:
