@@ -11,7 +11,7 @@
   <link rel="apple-touch-icon" sizes="180x180" href="icons/apple-touch-icon.png?v=4.5.0">
   <link rel="manifest" href="manifest.json?v=4.5.0">
   <link rel="stylesheet" href="style.css?v=4.5.3">
-  <link rel="stylesheet" href="mobile.css?v=4.5.0" media="(max-width: 760px), (max-width: 1024px) and (pointer: coarse), (max-width: 1024px) and (max-height: 500px)">
+  <link rel="stylesheet" href="mobile.css?v=4.6.8" media="(max-width: 760px), (max-width: 1024px) and (pointer: coarse), (max-width: 1024px) and (max-height: 500px)">
 </head>
 <body>
   <header>
@@ -52,6 +52,11 @@
   <aside id="poseSnapshots" aria-label="スナップショット一覧" hidden>
     <div id="snapshotList"></div>
   </aside>
+  <dialog id="snapshotEditor" aria-labelledby="snapshotEditorTitle">
+    <div class="snapshotEditorHeader"><button id="snapshotEditorCancel" type="button" aria-label="変更をキャンセル">×</button><h2 id="snapshotEditorTitle">スナップショット整理</h2><button id="snapshotEditorDone" type="button" aria-label="変更を保存して完了">✓</button></div>
+    <p id="snapshotEditorStatus" role="status"></p>
+    <div id="snapshotEditorScroll"><div id="snapshotEditorGrid"></div></div>
+  </dialog>
   <dialog id="symmetryDialog" class="symmetryDialog" aria-labelledby="symmetryTitle">
     <div class="symmetryHeader"><h2 id="symmetryTitle">左右対称化</h2><button id="symmetryClose" class="iconButton" type="button" aria-label="閉じる">×</button></div>
     <p>正面から見た左右を基準に、使いたい形を選びます。</p>
@@ -112,14 +117,14 @@
     </div>
   </dialog>
   <script src="motion-core.js?v=4.5.0"></script>
-  <script src="motion-ui.js?v=4.5.0"></script>
+  <script src="motion-ui.js?v=4.5.5"></script>
   <script src="model-gallery.js?v=4.5.0"></script>
-  <script src="pose-snapshots.js?v=4.5.0"></script>
+  <script src="pose-snapshots.js?v=4.6.3"></script>
   <script src="mesh-cache.js?v=4.5.0"></script>
-  <script src="app.js?v=4.5.0"></script>
+  <script src="app.js?v=4.6.5"></script>
   <script src="partition-ui.js?v=4.5.0"></script>
-  <script src="remote-print-ui.js?v=4.5.2"></script>
+  <script src="remote-print-ui.js?v=4.6.4"></script>
   <script src="workflow-ui.js?v=4.5.2"></script>
-  <script src="mobile-ui.js?v=4.5.2"></script>
+  <script src="mobile-ui.js?v=4.6.8"></script>
 </body>
 </html>

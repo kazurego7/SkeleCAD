@@ -131,6 +131,134 @@
       {"label":"S3","cavity_clearance_mm":-0.10,"label_dots":3}
     ]
   },
+  "joint_workflow_holding_trial": {
+    "revision": "R4",
+    "status": "calibration_only_not_production",
+    "output_directory": "build/joint_holding_R4",
+    "reference_profile": "C4_28",
+    "neck_diameter_mm": 2.8,
+    "retention_diameter_mm": 5.6,
+    "required_motion_deg": 30.0,
+    "motion_step_deg": 2,
+    "motion_limit_deg": 46,
+    "motion_azimuth_step_deg": 30,
+    "boolean_tolerance_mm3": 0.01,
+    "preview_spacing_mm": 25.0,
+    "print_support_top_z_distance_mm": 0.24,
+    "print_support_object_xy_distance_mm": 0.45,
+    "variants": [
+        {
+            "label": "T1",
+            "cavity_clearance_mm": 0.15,
+            "label_dots": 1
+        },
+        {
+            "label": "T2",
+            "cavity_clearance_mm": 0.05,
+            "label_dots": 2
+        },
+        {
+            "label": "T3",
+            "cavity_clearance_mm": 0,
+            "label_dots": 3
+        },
+        {
+            "label": "T4",
+            "cavity_clearance_mm": -0.05,
+            "label_dots": 4
+        },
+        {
+            "label": "T5",
+            "cavity_clearance_mm": -0.075,
+            "label_dots": 5
+        }
+    ]
+},
+  "joint_workflow_holding_step_trial": {
+    "revision": "R5",
+    "status": "calibration_only_not_production",
+    "output_directory": "build/joint_holding_R5",
+    "reference_profile": "R4_T5_user_preferred",
+    "neck_diameter_mm": 2.8,
+    "retention_diameter_mm": 5.6,
+    "required_motion_deg": 30.0,
+    "motion_step_deg": 2,
+    "motion_limit_deg": 46,
+    "motion_azimuth_step_deg": 30,
+    "boolean_tolerance_mm3": 0.01,
+    "preview_spacing_mm": 25.0,
+    "print_support_top_z_distance_mm": 0.24,
+    "print_support_object_xy_distance_mm": 0.45,
+    "variants": [
+        {
+            "label": "U1",
+            "cavity_clearance_mm": -0.075,
+            "label_dots": 0,
+            "label_number": 1
+        },
+        {
+            "label": "U2",
+            "cavity_clearance_mm": -0.1,
+            "label_dots": 0,
+            "label_number": 2
+        },
+        {
+            "label": "U3",
+            "cavity_clearance_mm": -0.125,
+            "label_dots": 0,
+            "label_number": 3
+        },
+        {
+            "label": "U4",
+            "cavity_clearance_mm": -0.15,
+            "label_dots": 0,
+            "label_number": 4
+        },
+        {
+            "label": "U5",
+            "cavity_clearance_mm": -0.175,
+            "label_dots": 0,
+            "label_number": 5
+        },
+        {
+            "label": "U6",
+            "cavity_clearance_mm": -0.2,
+            "label_dots": 0,
+            "label_number": 6
+        },
+        {
+            "label": "U7",
+            "cavity_clearance_mm": -0.225,
+            "label_dots": 0,
+            "label_number": 7
+        },
+        {
+            "label": "U8",
+            "cavity_clearance_mm": -0.25,
+            "label_dots": 0,
+            "label_number": 8
+        },
+        {
+            "label": "U9",
+            "cavity_clearance_mm": -0.275,
+            "label_dots": 0,
+            "label_number": 9
+        },
+        {
+            "label": "U10",
+            "cavity_clearance_mm": -0.3,
+            "label_dots": 0,
+            "label_number": 10
+        }
+    ],
+    "retention_reference": "cavity_sphere",
+    "number_label": {
+        "font_file": "C:/Windows/Fonts/arialbd.ttf",
+        "height_mm": 2.5,
+        "depth_mm": 0.6,
+        "tool_overlap_mm": 0.01
+    }
+},
   "hinge": {
     "pin_diameter_mm": 3.2,
     "hole_diameter_mm": 3.6,
@@ -269,7 +397,9 @@
     "manufacturing": {
       "joint_family": "retention_trial_deep_c4",
       "joint_variant": "C4_28",
-      "status": "experimental_requires_physical_fit_test",
+      "cavity_clearance_mm": -0.25,
+      "fit_selection": {"source_trial":"joint_workflow_holding_step_trial","source_variant":"U8","physical_fit_result":"user_selected","user_feedback":"U8 fits tightly and is preferred; U9 could not be inserted","rejected_variant":"U9"},
+      "status": "coupon_fit_selected_model_requires_verification",
         "anchor_embed_mm": 1.2,
         "axis_anchor_sample_step_mm": 0.1,
         "axis_search_step_deg": 5.0,
@@ -290,20 +420,34 @@
     "max_image_pixels": 24000000,
     "input_max_pixels": 1024,
     "seed": 3407,
-    "steps": 50,
-    "octree_resolution": 384,
+    "steps": 30,
+    "guidance_scale": 5.0,
+    "octree_resolution": 512,
     "inference_decoder": "hierarchical_full",
     "num_chunks": 8000,
+    "cpu_threads": 4,
     "progress_estimates_seconds": {
       "preparing": 45,
-      "diffusion": 95,
-      "volume_decoding": 7,
+      "diffusion": 60,
+      "volume_decoding": 14,
       "analysing": 10
     },
     "debris_cleanup": {
       "minimum_component_faces": 100,
       "minimum_component_area_ratio": 0.001,
-      "keep_largest_component": true
+      "keep_largest_component": true,
+      "maximum_speck_extent_mm": 1.5,
+      "maximum_speck_volume_mm3": 0.5,
+      "minimum_speck_separation_mm": 2.0
+    },
+    "connectivity_repair": {
+      "enabled": true,
+      "maximum_gap_mm": 2.0,
+      "bridge_radius_mm": 1.25,
+      "maximum_components": 64,
+      "circular_segments": 32,
+      "export_tolerance_mm": 0.00001,
+      "volume_tolerance_mm3": 0.001
     },
     "appearance_symmetry": {
       "enabled": true,
@@ -355,8 +499,8 @@
     "brush_step_mm": 0.15
   },
   "printing": {
-    "support_defaults": {"enabled":true,"type":"tree(auto)","top_z_distance_mm":0.2,"object_xy_distance_mm":0.45,"interface_top_layers":3,"interface_spacing_mm":0.2,"interface_speed_mm_s":35},
-    "production_profile": {"printer":"Bambu Lab A1 mini","nozzle_diameter_mm":0.4,"filament":"Bambu PLA Matte","color":"white","plate_confirmed":true,"plate":"Stock Textured PEI","orca_bed_type":"Textured PEI Plate","layer_height_mm":0.16,"wall_loops":4,"plate_width_mm":180.0,"plate_margin_mm":12.0,"object_gap_mm":12.0},
+    "support_defaults": {"enabled":true},
+    "production_profile": {"printer":"Bambu Lab A1 mini","nozzle_diameter_mm":0.4,"filament":"Bambu PLA Matte","color":"white","plate_confirmed":true,"plate":"Stock Textured PEI","orca_bed_type":"Textured PEI Plate","layer_height_mm":0.16,"plate_width_mm":180.0,"plate_margin_mm":12.0,"object_gap_mm":12.0},
     "min_wall_mm": 2.0,
     "textured_pei_bed_temperature_c": 55,
     "stl_quantization_cleanup_mm": 0.00005,

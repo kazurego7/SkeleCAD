@@ -58,7 +58,7 @@ def prepare_image(source, output):
             'sha256': hashlib.sha256(output.read_bytes()).hexdigest()}
 
 
-def normalize_mesh(source, output, length_mm, cleanup=None):
+def normalize_mesh(source, output, length_mm, cleanup=None, connectivity=None):
     import numpy as np
     import trimesh
     mesh = trimesh.load(source, force='mesh', process=True)
@@ -76,11 +76,22 @@ def normalize_mesh(source, output, length_mm, cleanup=None):
     minimum_faces=int(cleanup['minimum_component_faces']);minimum_area=float(mesh.area)*float(cleanup['minimum_component_area_ratio'])
     kept=[];removed=[]
     for component in components:
-        if component is largest or len(component.faces)>=minimum_faces or component.area>=minimum_area:kept.append(component)
+        if component is largest or component.volume < 0 or len(component.faces)>=minimum_faces or component.area>=minimum_area:kept.append(component)
         else:removed.append(component)
     if not kept:raise ValueError('3D生成結果の微小片除去で形状が残りません。')
     if removed:
         mesh=trimesh.util.concatenate(kept);mesh.remove_unreferenced_vertices()
+    sys.path.insert(0, str(PROJECT/'src'))
+    from workflow_debris import remove_isolated_specks
+    physical_cleanup = json.loads((PROJECT/'config/parameters.json').read_text(encoding='utf-8'))['image_workflow']['debris_cleanup'] | cleanup
+    # Include substantial detached anatomy (e.g. the head) in the reference
+    # envelope, while excluding low-area specks regardless of triangle count.
+    framing = trimesh.util.concatenate([part for part in kept
+                                       if part is largest or part.area >= minimum_area])
+    provisional_scale = float(length_mm / max(framing.extents))
+    mesh.apply_scale(provisional_scale)
+    mesh, speck_report = remove_isolated_specks(mesh, physical_cleanup)
+    mesh.apply_scale(1.0 / provisional_scale)
     # Debris must not enlarge the bounds and make the actual subject scale down.
     original_extents = mesh.extents.copy();scale=float(length_mm/max(original_extents))
     removed_area=float(sum(item.area for item in removed))*scale**2
@@ -89,8 +100,19 @@ def normalize_mesh(source, output, length_mm, cleanup=None):
     # Hunyuan's Y-up space -> the existing viewer/printing Z-up space, front to -Y.
     rotation=np.array([[1,0,0,0],[0,0,-1,0],[0,1,0,0],[0,0,0,1]],dtype=float)
     mesh.apply_transform(rotation)
+    sys.path.insert(0, str(PROJECT/'src'))
+    from workflow_connectivity import repair_connectivity
+    if connectivity is None:
+        connectivity = json.loads((PROJECT/'config/parameters.json').read_text(encoding='utf-8'))['image_workflow']['connectivity_repair']
+    before = output.with_name(output.stem+'_before_connectivity.stl')
+    mesh.export(before)
+    mesh = trimesh.load(before, force='mesh', process=True)
+    mesh, connectivity_report = repair_connectivity(mesh, connectivity)
+    connectivity_report['source_sha256'] = hashlib.sha256(before.read_bytes()).hexdigest()
     mesh.export(output)
     return {'vertices': len(mesh.vertices), 'faces': len(mesh.faces), 'removed_degenerate_or_duplicate_faces':input_faces-surface_faces,
+            'connectivity_repair': connectivity_report,
+            'isolated_speck_cleanup': speck_report,
             'debris_cleanup':{'input_components':len(components),'kept_components':len(kept),'removed_components':len(removed),
                               'removed_faces':int(sum(len(item.faces) for item in removed)),'removed_area_mm2':removed_area,
                               'removed_volume_mm3':removed_volume,
@@ -129,9 +151,14 @@ def run(directory, analyse_existing=False):
                    '--source-original', str(directory / 'source_original.bin'),
                    '--hunyuan-root', str(WORKSPACE / '.tools/Hunyuan3D-2.1'),
                    '--seed', str(settings['seed']), '--steps', str(settings['steps']),
+                   '--guidance', str(settings.get('guidance_scale', 5.0)),
                    '--resolution', str(settings['octree_resolution']),
                    '--decoder', str(settings.get('inference_decoder', 'vanilla')),
                    '--num-chunks', str(settings.get('num_chunks', 8000))]
+        cpu_threads = settings.get('cpu_threads')
+        if cpu_threads is None:
+            cpu_threads = json.loads((PROJECT/'config/parameters.json').read_text(encoding='utf-8'))['image_workflow']['cpu_threads']
+        command.extend(['--cpu-threads', str(cpu_threads)])
         if not analyse_existing:
             with (directory / 'inference.log').open('ab') as log:
                 subprocess.run(command, env=env, check=True, stdout=log, stderr=subprocess.STDOUT,
@@ -144,7 +171,7 @@ def run(directory, analyse_existing=False):
             for filename in ('appearance.stl','manifest.json'):
                 if (directory/filename).exists() and not (backup/filename).exists():shutil.copy2(directory/filename,backup/filename)
         cleanup=settings.get('debris_cleanup') or json.loads((PROJECT/'config/parameters.json').read_text(encoding='utf-8'))['image_workflow']['debris_cleanup']
-        report = normalize_mesh(directory / 'inference.glb', directory / 'appearance.stl', state['target_length_mm'],cleanup)
+        report = normalize_mesh(directory / 'inference.glb', directory / 'appearance.stl', state['target_length_mm'],cleanup,settings.get('connectivity_repair'))
         sys.path.insert(0,str(PROJECT/'src'))
         from workflow_geometry import analyse
         detector=settings.get('joint_detection') or json.loads((PROJECT/'config/parameters.json').read_text(encoding='utf-8'))['image_workflow']['joint_detection']
@@ -167,6 +194,12 @@ def run(directory, analyse_existing=False):
                     'limitations': ['外観のみ。パーツ分割・精密ジョイント加工・可動確認・印刷検証は未完了。']}
         write_json(directory / 'manifest.json', manifest)
         message=f"{len(parts)}パーツの分割候補を色分け。可動ジョイント加工・印刷準備は未完了です。" if preview else f"外観の生成完了。球状の候補{len(candidates['candidates'])}箇所。パーツ分割・ジョイント加工は未完了です。"
+        connection = report.get('connectivity_repair', {})
+        if connection.get('enabled') and not connection.get('fully_connected'):
+            warning = f"接続修復の範囲を超える分離が残っています（{connection['output_components']}領域）。"
+            manifest['limitations'].append(warning)
+            write_json(directory / 'manifest.json', manifest)
+            message += warning
         update('appearance_ready', message,
                manifest=base + 'manifest.json',manifest_sha256=hashlib.sha256((directory/'manifest.json').read_bytes()).hexdigest(),preview_part_count=len(parts))
     except Exception as exc:

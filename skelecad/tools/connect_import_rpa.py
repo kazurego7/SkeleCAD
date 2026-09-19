@@ -14,6 +14,7 @@ from types import SimpleNamespace
 from urllib.parse import urlencode, quote
 import zipfile
 
+from connect_dialog_cleanup import cleanup_previous_dialog
 from connect_prepare_rpa import observe, plan_preparation, click_import_once, run as prepare
 
 
@@ -31,7 +32,7 @@ def create_staged_job(source, output):
             raise ValueError('Corrupt 3MF package.')
     folder = output / 'job'
     folder.mkdir(parents=True, exist_ok=True)
-    staged = folder / ('SkeleCAD-' + secrets.token_hex(4).upper() + '.gcode.3mf')
+    staged = folder / ('SkeleCAD-' + ''.join(secrets.choice('ACFHJKMNPRTUVWXY') for _ in range(12)) + '.gcode.3mf')
     with staged.open('xb') as destination:
         destination.write(content)
     return staged, hashlib.sha256(content).hexdigest()
@@ -86,12 +87,17 @@ def execute_import(staged, digest, expected, output, result):
     validate_handler()
     if hashlib.sha256(staged.read_bytes()).hexdigest() != digest:
         raise RuntimeError('Staged file changed.')
+    cleanup_previous_dialog(output, expected)
+    decision = output / 'dispatch.decision'
+    if decision.exists() and decision.read_text(encoding='utf-8') == 'cancel':
+        raise RuntimeError('印刷の送信をキャンセルしました。')
     # The same run never dispatches a URL twice, even after an unknown outcome.
     with (output / 'url-import.attempted').open('x', encoding='utf-8') as marker:
         json.dump({'file': str(staged), 'sha256': digest}, marker)
     os.startfile(import_uri(staged))
     result['url_dispatched'] = True
     confirmed = False
+    unstable_observations = 0
     seen_window = False
     deadline = time.monotonic() + 90
     for index in range(400):
@@ -117,6 +123,9 @@ def execute_import(staged, digest, expected, output, result):
         if stage == 'loaded_preview':
             plan = plan_preparation(current, staged.name)
             if plan['action'] != 'open_print_dialog':
+                if plan.get('reason') == 'filename_mismatch_or_ambiguous':
+                    # URL import is asynchronous; the previous preview can remain briefly.
+                    continue
                 raise RuntimeError('Loaded file could not be matched to this run: ' + plan['reason'])
             if hashlib.sha256(staged.read_bytes()).hexdigest() != digest:
                 raise RuntimeError('Staged file changed after import.')
@@ -132,10 +141,20 @@ def execute_import(staged, digest, expected, output, result):
                 continue
             plan = plan_import(current, staged.name)
             if plan['action'] != 'confirm_import':
+                if plan.get('reason') == 'unique_import_button_not_found':
+                    continue
                 raise RuntimeError('Import confirmation could not be verified: ' + plan['reason'])
             refreshed = observe(output / 'import-recheck', expected)
-            if plan_import(refreshed, staged.name) != plan or refreshed.get('window_reference') != current.get('window_reference'):
+            refreshed_plan = plan_import(refreshed, staged.name)
+            if refreshed_plan.get('action') != 'confirm_import' or refreshed.get('window_reference') != current.get('window_reference'):
                 raise RuntimeError('Import screen changed; no confirmation clicked.')
+            if refreshed_plan != plan:
+                # Dialog entrance animation can move the button by a few pixels.
+                # Reobserve only: require two matching fresh plans before any input.
+                unstable_observations += 1
+                if unstable_observations >= 8:
+                    raise RuntimeError('読み込み確認画面が安定しませんでした。クリックは実行していません。')
+                continue
             if hashlib.sha256(staged.read_bytes()).hexdigest() != digest:
                 raise RuntimeError('Staged file changed before confirmation.')
             if decision.exists() and decision.read_text(encoding='utf-8') == 'cancel':

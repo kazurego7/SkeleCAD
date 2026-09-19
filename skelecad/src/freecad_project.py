@@ -674,6 +674,12 @@ def main():
     if len(sys.argv)==2 and sys.argv[1]=='--holding-trial':
         from joint_holding_trial import generate
         return generate()
+    if len(sys.argv)==2 and sys.argv[1]=='--workflow-holding-step-trial':
+        from joint_holding_trial import generate
+        return generate('joint_workflow_holding_step_trial','HoldingTrialR5')
+    if len(sys.argv)==2 and sys.argv[1]=='--workflow-holding-trial':
+        from joint_holding_trial import generate
+        return generate('joint_workflow_holding_trial','HoldingTrialR4')
     if len(sys.argv)==2 and sys.argv[1]=='--holding-step-trial':
         from joint_holding_trial import generate
         return generate('joint_holding_step_trial','HoldingTrialR3')

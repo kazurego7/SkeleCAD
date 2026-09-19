@@ -34,18 +34,10 @@ def native_settings():
         'filament_settings_id':[BAMBU['filament_preset']],'filament_ids':['GFA01'],
         'filament_colour':['#FFFFFF'],'filament_multi_colour':['#FFFFFF'],
         'curr_bed_type':cfg['orca_bed_type'],'textured_plate_temp':[temp],'textured_plate_temp_initial_layer':[temp],
-        'layer_height':str(cfg['layer_height_mm']),'wall_loops':str(cfg['wall_loops']),
-        'enable_support':'1' if support['enabled'] else '0',
-        'support_type':support['type'],'support_top_z_distance':str(support['top_z_distance_mm']),
-        'support_object_xy_distance':str(support['object_xy_distance_mm']),
-        'support_interface_spacing':str(support['interface_spacing_mm']),
-        'support_interface_speed':[str(support['interface_speed_mm_s'])],
-        'support_interface_top_layers':str(support['interface_top_layers']),'brim_type':'auto_brim','brim_width':'5','sparse_infill_density':'15%',
-        'ensure_vertical_shell_thickness':'enabled','ironing_pattern':'zig-zag','support_ironing_pattern':'zig-zag'})
-    # Native enum spellings. Do not import any full Orca configuration.
-    assert settings['ensure_vertical_shell_thickness']=='enabled'
-    assert settings['ironing_pattern']=='zig-zag'
-    assert settings['support_ironing_pattern']=='zig-zag'
+        'layer_height':str(cfg['layer_height_mm']),
+        'enable_support':'1',
+        'brim_type':'auto_brim','brim_width':'5'})
+    # Support details, strength and speed are inherited from the native presets.
     # Bambu's GUI merges the named system presets using these per-preset diff keys.
     # Values alone work in CLI slicing but are not sufficient on GUI project import.
     settings['different_settings_to_system']=[

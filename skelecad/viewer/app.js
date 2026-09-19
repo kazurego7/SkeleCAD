@@ -341,6 +341,10 @@ canvas.addEventListener('wheel',e=>{
   e.preventDefault();zoom(Math.exp(e.deltaY*.001));
 },{passive:false});
 window.addEventListener('resize',requestRender);
+// Phone rotation and browser chrome can settle after the window resize event.
+if(typeof ResizeObserver!=='undefined')new ResizeObserver(requestRender).observe(canvas);
+window.visualViewport?.addEventListener('resize',requestRender);
+window.addEventListener('orientationchange',()=>{requestRender();setTimeout(requestRender,250);});
 function resetDisplay(){
   resetView();
   if(motion?.isActive())motion.restore({joints:motion.joints().map(j=>({...j,angles:[0,0,0]}))});
@@ -355,7 +359,7 @@ function start(){
     if(!gl.getProgramParameter(program,gl.LINK_STATUS))throw new Error('描画を開始できません');
     gl.useProgram(program);gl.enable(gl.DEPTH_TEST);gl.enable(gl.CULL_FACE);gl.cullFace(gl.BACK);
     if(typeof createArticulation==='function')motion=createArticulation({canvas,parts:[],mesh:()=>mesh,camera:cameraParameters,normalize,cross,requestRender,onStateChange:()=>snapshots?.sync()});
-    if(typeof createPoseSnapshots==='function')snapshots=createPoseSnapshots({canvas,motion:()=>motion,model:()=>canvas.dataset.stateKey||canvas.dataset.model||modelSelect.value,unscopedModel:()=>canvas.dataset.model,camera:cameraState,setCamera:restoreCamera,resetView,capture:capturePreview,requestRender});
+    if(typeof createPoseSnapshots==='function')snapshots=(typeof createMobilePoseSnapshots==='function'&&window.matchMedia?.('(max-width: 760px), (max-width: 1024px) and (pointer: coarse), (max-width: 1024px) and (max-height: 500px)').matches?createMobilePoseSnapshots:createPoseSnapshots)({canvas,motion:()=>motion,model:()=>canvas.dataset.stateKey||canvas.dataset.model||modelSelect.value,unscopedModel:()=>canvas.dataset.model,camera:cameraState,setCamera:restoreCamera,resetView,capture:capturePreview,requestRender});
     requestRender();
   }catch(error){status.dataset.loading='false';status.hidden=false;status.textContent=error.message;}
 }

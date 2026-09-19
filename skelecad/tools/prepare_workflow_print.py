@@ -123,13 +123,9 @@ def audit_input(path,directory,report):
     with zipfile.ZipFile(path) as z:
         if z.testzip() is not None:raise ValueError('Corrupt print package')
         settings=json.loads(z.read('Metadata/project_settings.config'))
-        support=PARAMS['printing']['support_defaults']
-        required={'enable_support':'1','support_type':support['type'],
-                  'support_top_z_distance':str(support['top_z_distance_mm']),
-                  'support_object_xy_distance':str(support['object_xy_distance_mm']),
-                  'support_interface_spacing':str(support['interface_spacing_mm']),
-                  'support_interface_speed':[str(support['interface_speed_mm_s'])],
-                  'support_interface_top_layers':str(support['interface_top_layers'])}
+        defaults=native_settings()
+        required={key:value for key,value in defaults.items()
+                  if key=='enable_support' or key.startswith('support_') or key.startswith('tree_support_')}
         for key,value in required.items():
             if settings.get(key)!=value:raise ValueError(f'Unexpected support setting {key}')
         root=ET.fromstring(z.read('3D/3dmodel.model'));md=ET.fromstring(z.read('Metadata/model_settings.config'))

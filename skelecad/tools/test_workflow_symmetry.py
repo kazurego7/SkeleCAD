@@ -39,6 +39,9 @@ class SymmetryTests(unittest.TestCase):
         body=trimesh.creation.icosphere(subdivisions=2,radius=8)
         bump=trimesh.creation.icosphere(subdivisions=1,radius=2);bump.apply_translation([7,0,0])
         mesh=trimesh.boolean.union([body,bump],engine='manifold')
+        dust=trimesh.creation.icosphere(subdivisions=2,radius=.3)
+        dust.apply_translation([15,0,0])
+        mesh=trimesh.util.concatenate([mesh,dust])
         with tempfile.TemporaryDirectory() as temporary:
             directory=Path(temporary);appearance=directory/'appearance.stl';mesh.export(appearance)
             shape_hash=hashlib.sha256(appearance.read_bytes()).hexdigest()
@@ -56,6 +59,15 @@ class SymmetryTests(unittest.TestCase):
             self.assertEqual(hashlib.sha256((directory/'symmetry/original/appearance.stl').read_bytes()).hexdigest(),shape_hash)
             result=trimesh.load(appearance,force='mesh',process=True);self.assertTrue(result.is_volume)
             self.assertAlmostEqual(result.bounds[0,0],-result.bounds[1,0],places=4)
+            revised=json.loads((directory/'manifest.json').read_text(encoding='utf-8'))
+            self.assertEqual(revised['geometry']['isolated_speck_cleanup']['removed_components'],2)
+            self.assertEqual(sum(part.volume>0 for part in result.split()),1)
+            # Re-selecting a side must clean the historical original again.
+            published.update(source_manifest_sha256=hashlib.sha256((directory/'manifest.json').read_bytes()).hexdigest(),
+                             symmetry_source_side='positive_x')
+            write_json(directory/'state.json',published);run_worker(directory)
+            repeated=trimesh.load(appearance,force='mesh')
+            self.assertEqual(sum(part.volume>0 for part in repeated.split()),1)
 
 
 if __name__=='__main__':unittest.main()

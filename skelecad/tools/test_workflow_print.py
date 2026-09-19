@@ -48,17 +48,17 @@ class WorkflowPrintTests(unittest.TestCase):
                 if k in settings and k not in ('different_settings_to_system','inherits_group'):
                     self.assertEqual(restored[k],settings[k],k)
         self.assertIn('enable_support',settings['different_settings_to_system'][0])
-        self.assertIn('support_interface_speed',settings['different_settings_to_system'][0])
+        self.assertNotIn('support_interface_speed',settings['different_settings_to_system'][0])
 
     def test_production_print_defaults_to_support_enabled(self):
-        with patch.object(bambu_settings,'preset',return_value={}):
-            settings=bambu_settings.native_settings()
+        settings=bambu_settings.native_settings()
         self.assertEqual(settings['enable_support'],'1')
-        self.assertEqual(settings['support_type'],'tree(auto)')
-        self.assertEqual(settings['support_interface_spacing'],'0.2')
-        self.assertEqual(settings['support_interface_speed'],['35'])
-        self.assertEqual(settings['support_top_z_distance'],'0.2')
-        self.assertEqual(settings['support_interface_top_layers'],'3')
+        baseline={}
+        for kind in ('machine','process','filament'):
+            baseline.update(bambu_settings.preset(kind,bambu_settings.BAMBU[kind+'_preset']))
+        for key,value in baseline.items():
+            if key not in ('enable_support','layer_height','brim_type','brim_width','different_settings_to_system','inherits_group','textured_plate_temp','textured_plate_temp_initial_layer','filament_colour','filament_multi_colour','filament_ids','printer_settings_id','print_settings_id','filament_settings_id','curr_bed_type'):
+                self.assertEqual(settings[key],value,key)
 
     def test_orientation_is_rigid_and_preserves_mating_scale(self):
         mesh=trimesh.creation.box([6,20,8]);R=orient(mesh)

@@ -6,6 +6,7 @@ function createArticulation(api){
   let inFlight=null,queued=null,dragging=false,twisting=false,marks=new Float32Array(),marksVersion=0,updates=0;
   let circleGesture=null;
   let parked=null,workerKey=null,previewOnly=false,precisionPending=false;
+  let minimumVisibleSequence=0;
   function clearMarks(){marks=new Float32Array();marksVersion++;result.hidden=true;result.textContent='';canvas.dataset.collisionPairCount='0';}
   function updateSelection(){
     selectionInfo.hidden=!active||!selectedPart;
@@ -20,10 +21,18 @@ function createArticulation(api){
     inFlight=queued;queued=null;
     worker.postMessage({type:'check',id:inFlight.id,matrices:inFlight.matrices});
   }
-  function changed(){
+  function changed(immediate=false){
     const pose=Object.fromEntries(Object.entries(angles).map(([name,value])=>[name,value.slice()]));
     queued={id:++sequence,pose,matrices:C.poses(joints,pose)};
     canvas.dataset.requestedPose=JSON.stringify(pose);
+    if(immediate){
+      minimumVisibleSequence=queued.id;
+      matrices=queued.matrices;displayPose=pose;clearMarks();
+      canvas.dataset.jointPose=JSON.stringify(pose);canvas.dataset.poseRevision=String(queued.id);
+      delete canvas.dataset.collisionRevision;
+      canvas.dataset.collisionState=failed?'unavailable':'pending';
+      updateSelection();api.requestRender();
+    }
     // Never debounce until pointer-up: run one check and keep only the newest
     // queued pose. Every finished check is eligible to be displayed.
     if(failed||precisionPending){matrices=queued.matrices;displayPose=pose;updateSelection();canvas.dataset.jointPose=JSON.stringify(pose);queued=null;api.requestRender();return;}
@@ -35,7 +44,7 @@ function createArticulation(api){
     if(worker&&ready&&!failed&&workerKey){parked?.worker.terminate();parked={worker,key:workerKey};}
     else worker?.terminate();
     worker=null;workerKey=null;ready=false;active=false;failed=false;previewOnly=false;precisionPending=false;dragging=false;twisting=false;inFlight=null;queued=null;
-    joints=[];angles={};displayPose={};matrices={};selected='';selectedPart='';updates=0;clearMarks();updateSelection();
+    joints=[];angles={};displayPose={};matrices={};selected='';selectedPart='';updates=0;minimumVisibleSequence=0;clearMarks();updateSelection();
     canvas.dataset.motionEnabled='false';canvas.dataset.collisionState='inactive';canvas.dataset.draggingJoint='false';
     for(const name of ['selectedJoint','partGesture','jointPose','requestedPose','collisionRevision','poseRevision','collisionComputeMs','collisionUpdates','collisionUpdatesDuringDrag','collisionLastDragState'])delete canvas.dataset[name];
     api.onStateChange?.();
@@ -111,6 +120,9 @@ function createArticulation(api){
         if(data.type==='ready'){ready=true;pump();return;}
         if(data.type==='error'){fail();return;}
         if(data.type!=='result'||!inFlight||data.id!==inFlight.id)return;
+        // A snapshot is already visible. Older checks must neither roll back
+        // its pose nor attach collision marks from the previous snapshot.
+        if(data.id<minimumVisibleSequence){inFlight=null;pump();return;}
         // Commit tested pose and collision overlay atomically. Keeping them
         // together prevents stale marks and starvation during continuous input.
         matrices=inFlight.matrices;displayPose=inFlight.pose;updateSelection();canvas.dataset.jointPose=JSON.stringify(inFlight.pose);
@@ -205,7 +217,7 @@ function createArticulation(api){
       if(index>=0){angles[joint.name]=saved[index].angles.map(limit);used.add(index);restored++;}
       else angles[joint.name]=[0,0,0];
     }
-    if(!joints.some(j=>j.name===selected)){selected=joints[0]?.name||'';selectedPart=joints[0]?.part||'';canvas.dataset.selectedJoint=selected;}changed();
+    if(!joints.some(j=>j.name===selected)){selected=joints[0]?.name||'';selectedPart=joints[0]?.part||'';canvas.dataset.selectedJoint=selected;}changed(true);
     return {restored,total:joints.length};
   }
   canvas.addEventListener('keydown',e=>{

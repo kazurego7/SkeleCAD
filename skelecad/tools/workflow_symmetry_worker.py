@@ -57,12 +57,23 @@ def run(directory):
         from workflow_symmetry import geometry_report,symmetrize_yz
         source=trimesh.load(original/'appearance.stl',force='mesh',process=True)
         result=symmetrize_yz(source,source_side)
+        from workflow_debris import remove_isolated_specks
+        cleanup_cfg=json.loads((PROJECT/'config/parameters.json').read_text(encoding='utf-8'))['image_workflow']['debris_cleanup']
+        result,speck_report=remove_isolated_specks(result,cleanup_cfg)
+        from workflow_connectivity import repair_connectivity
+        repair_cfg=json.loads((PROJECT/'config/parameters.json').read_text(encoding='utf-8'))['image_workflow']['connectivity_repair']
+        # Quantize the baseline before the additive preservation audit.
+        result.export(revision_dir/'before_connectivity.stl')
+        result=trimesh.load(revision_dir/'before_connectivity.stl',force='mesh',process=True)
+        result,connectivity=repair_connectivity(result,repair_cfg,mirror_yz=True)
         candidate=revision_dir/'appearance.stl';result.export(candidate)
         # Re-open the float32 STL: downstream CAD receives exactly this topology.
         result=trimesh.load(candidate,force='mesh',process=True)
         if not result.is_volume:raise ValueError('STL保存後の左右対称形状が閉じていません。')
         baseline=json.loads((original/'manifest.json').read_text(encoding='utf-8'))
         report=geometry_report(result,candidate,baseline.get('geometry'),source_side)
+        report['connectivity_repair']=connectivity
+        report['isolated_speck_cleanup']=speck_report
 
         from workflow_geometry import analyse
         parameters=json.loads((PROJECT/'config/parameters.json').read_text(encoding='utf-8'))['image_workflow']['joint_detection']

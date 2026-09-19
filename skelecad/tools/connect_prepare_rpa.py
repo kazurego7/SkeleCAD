@@ -73,6 +73,20 @@ def _click_preparation_button(observation, plan):
     _click_verified_button(observation, plan, required_stage)
 
 
+def ensure_preparation_foreground(window, user32, handle, required_stage):
+    """Activate only a verified preparation window; never relax Send checks."""
+    if user32.GetForegroundWindow() == handle:
+        return
+    if required_stage not in ('import_confirmation', 'loaded_preview'):
+        raise RuntimeError('Connectが最前面ではありません。送信は実行していません。')
+    window.set_focus()
+    for _ in range(20):
+        if user32.GetForegroundWindow() == handle:
+            return
+        time.sleep(.05)
+    raise RuntimeError('Bambu Connectを手前に表示できませんでした。PCの画面状態を確認してください。')
+
+
 def _click_verified_button(observation, plan, required_stage, verify_dialog=False):
     if observation.get('stage_candidate') != required_stage:
         raise RuntimeError('Unexpected screen before input.')
@@ -94,8 +108,12 @@ def _click_verified_button(observation, plan, required_stage, verify_dialog=Fals
     user32.WindowFromPoint.restype = wintypes.HWND
     user32.GetAncestor.argtypes = [wintypes.HWND, wintypes.UINT]
     user32.GetAncestor.restype = wintypes.HWND
-    if user32.GetForegroundWindow() != ref['handle']:
-        raise RuntimeError('Bring Connect to the foreground yourself; this tool does not activate it.')
+    ensure_preparation_foreground(window, user32, ref['handle'],
+                                  'import_confirmation' if plan.get('action') == 'cancel_previous_dialog' else required_stage)
+    # Activation can change window geometry; refuse old coordinates in that case.
+    rect = window.rectangle()
+    if (rect.left, rect.top, rect.width(), rect.height()) != (ref['left'], ref['top'], ref['width'], ref['height']):
+        raise RuntimeError('Window moved or resized during activation; no click performed.')
     left, top, right, bottom = plan['bounds']
     x, y = ref['left'] + (left + right) // 2, ref['top'] + (top + bottom) // 2
     if user32.GetAncestor(user32.WindowFromPoint(wintypes.POINT(x, y)), 2) != ref['handle']:
@@ -131,6 +149,7 @@ def _click_verified_button(observation, plan, required_stage, verify_dialog=Fals
         # Public mouse API avoids the wrapper's redundant set_focus/logging path.
         # Foreground, target window and current pixels were checked just above.
         mouse.click(button='left', coords=(x, y))
+        mouse.move(coords=(ref['left'] + 32, ref['top'] + 12))
     finally:
         Timings.after_clickinput_wait = previous_wait
 

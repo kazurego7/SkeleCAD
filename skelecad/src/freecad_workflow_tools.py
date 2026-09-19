@@ -60,13 +60,31 @@ def socket_rotation(axis, symmetry_axis='x'):
     return App.Rotation(axis,transverse,axis.cross(transverse),'XYZ')
 
 
+def resolve_workflow_variant(cfg,params):
+    trial=params['joint_retention_trial']
+    variant=dict(next(v for v in trial['deep_c4']['variants'] if v['label']==cfg['joint_variant']))
+    clearance=cfg.get('cavity_clearance_mm',trial['deep_c4']['cavity_clearance_mm'])
+    selection=cfg.get('fit_selection')
+    if selection:
+        source=params[selection['source_trial']]
+        selected=next(v for v in source['variants'] if v['label']==selection['source_variant'])
+        if selection.get('physical_fit_result')!='user_selected' or clearance!=selected['cavity_clearance_mm']:
+            raise ValueError('Workflow clearance does not match the physically selected fit')
+        for key in ('neck_diameter_mm','retention_diameter_mm'):
+            if variant[key]!=source[key]:raise ValueError('Selected fit uses different joint geometry')
+    elif not 0 <= clearance <= trial['deep_c4']['cavity_clearance_mm']:
+        raise ValueError('Interference fit requires a physically selected calibration variant')
+    variant['cavity_clearance_mm']=clearance
+    return variant
+
+
 def generate(request_path):
     request_path=Path(request_path).resolve()
     request=json.loads(request_path.read_text(encoding='utf-8'))
     cfg=request['settings']['manufacturing']
     trial=authority.PARAMS['joint_retention_trial']
     if cfg['joint_family']!='retention_trial_deep_c4':raise ValueError('Unsupported joint family')
-    variant=next(v for v in trial['deep_c4']['variants'] if v['label']==cfg['joint_variant'])
+    variant=resolve_workflow_variant(cfg,authority.PARAMS)
     if request['trial_parameters']!=trial:raise ValueError('Joint settings changed; regenerate the request')
     out=request_path.parent/'tools';out.mkdir(exist_ok=True)
     doc=App.newDocument('ImageWorkflowTools');reports=[];refinement_fallbacks=[]
@@ -119,7 +137,7 @@ def generate(request_path):
         shell,void=(shape.copy() for shape in templates)
         shell.Placement=placement;shell=shell.copy()
         void.Placement=placement;void=void.copy()
-        ri=(trial['ball_diameter_mm']+trial['deep_c4']['cavity_clearance_mm'])/2
+        ri=(trial['ball_diameter_mm']+variant['cavity_clearance_mm'])/2
         ro=ri+trial['deep_c4']['wall_mm']
         cavity=Part.makeSphere(ri,center)
         back=center-axis*(ro-cfg['socket_bridge_overlap_mm'])
@@ -142,6 +160,8 @@ def generate(request_path):
             'cached_joints':hits,
             'socket_slit_orientation':'symmetry_plane_projected_frame_v1',
             'joint_family':cfg['joint_family'],'joint_variant':variant['label'],
+            'cavity_clearance_mm':variant['cavity_clearance_mm'],
+            'fit_selection':cfg.get('fit_selection'),
             'workflow_socket_back':'rounded_shell_without_calibration_mount_or_label_dimples'}
     (out/('cad_'+request['phase']+'.json')).write_text(json.dumps(report,indent=2),encoding='utf-8')
     print(json.dumps(report),flush=True)

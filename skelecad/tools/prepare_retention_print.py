@@ -9,7 +9,7 @@ from print_package_audit import set_meta
 from print_package_audit import NS,PNS,arrays
 
 C=PARAMS['joint_retention_trial'];BASE=ROOT/C['output_directory']
-def main(names=None,title='Retention R1 - 5 patterns',profile_name='SkeleCAD Retention R1 0.12 Support ON'):
+def main(names=None,title='Retention R1 - 5 patterns',profile_name='SkeleCAD Retention R1 0.12 Support ON',native_profile=False,paired_layout=False):
     for key in ('executable','library'):
         assert hashlib.sha256(Path(BAMBU[key]).read_bytes()).hexdigest()==BAMBU[key+'_sha256']
     from bambu_project_schema import empty_project
@@ -60,7 +60,19 @@ def main(names=None,title='Retention R1 - 5 patterns',profile_name='SkeleCAD Ret
         records.append({'label':label,'source':str(source.relative_to(ROOT)),'sha256':hashlib.sha256(source.read_bytes()).hexdigest(),'stl_watertight':True,'stl_winding':True,'solids':1,'vertices':len(vertices),'triangles':len(faces)})
     cfg=PARAMS['printing']['production_profile'];margin=cfg['plate_margin_mm'];gap=cfg['object_gap_mm'];side=cfg['plate_width_mm']
     x=y=margin;depth=0;bounds=[]
-    for item,label,R,lo,hi in sorted(objects,key=lambda o:-(o[4]-o[3])[1]):
+    ordered=sorted(objects,key=lambda o:-(o[4]-o[3])[1])
+    if paired_layout:
+        columns=min(5,len(objects)//2)
+        ordered=[]
+        for start in range(0,len(objects),2*columns):
+            group=objects[start:start+2*columns]
+            ordered.extend(group[1::2]+group[::2])
+    cell_width=max(float((o[4]-o[3])[0]) for o in objects)+gap
+    cell_depth=max(float((o[4]-o[3])[1]) for o in objects)+gap
+    for index,(item,label,R,lo,hi) in enumerate(ordered):
+        if paired_layout:
+            x=margin+(index%columns)*cell_width
+            y=margin+(index//columns)*cell_depth
         size=hi-lo
         if x+size[0]>side-margin:x=margin;y+=depth+gap;depth=0
         assert y+size[1]<side-margin,(label,'plate overflow')
@@ -69,13 +81,14 @@ def main(names=None,title='Retention R1 - 5 patterns',profile_name='SkeleCAD Ret
         bounds.append({'name':label,'min':(lo+shift).tolist(),'max':(hi+shift).tolist()})
         x+=size[0]+gap;depth=max(depth,size[1])
     settings=native_settings()
-    support_top_z=C.get('print_support_top_z_distance_mm',C['print_layer_height_mm'])
-    support_xy=C.get('print_support_object_xy_distance_mm',settings['support_object_xy_distance'])
-    settings.update({'layer_height':str(C['print_layer_height_mm']),'support_top_z_distance':str(support_top_z),
-                     'support_object_xy_distance':str(support_xy),
-                     'outer_wall_speed':str(C['print_outer_wall_speed_mm_s']),'inner_wall_speed':str(C['print_inner_wall_speed_mm_s']),
-                     'sparse_infill_density':str(C['print_infill_percent'])+'%','sparse_infill_pattern':'zig-zag',
-                     'enable_support':'1','support_type':'tree(auto)','print_settings_id':profile_name})
+    if not native_profile:
+        support_top_z=C.get('print_support_top_z_distance_mm',C['print_layer_height_mm'])
+        support_xy=C.get('print_support_object_xy_distance_mm',settings['support_object_xy_distance'])
+        settings.update({'layer_height':str(C['print_layer_height_mm']),'support_top_z_distance':str(support_top_z),
+                         'support_object_xy_distance':str(support_xy),
+                         'outer_wall_speed':str(C['print_outer_wall_speed_mm_s']),'inner_wall_speed':str(C['print_inner_wall_speed_mm_s']),
+                         'sparse_infill_density':str(C['print_infill_percent'])+'%','sparse_infill_pattern':'zig-zag',
+                         'enable_support':'1','support_type':'tree(auto)','print_settings_id':profile_name})
     for meta in root.findall(NS+'metadata'):
         if meta.get('name')=='Title':meta.text='SkeleCAD '+title
     payload.update({'3D/3dmodel.model':ET.tostring(root,encoding='utf-8',xml_declaration=True),

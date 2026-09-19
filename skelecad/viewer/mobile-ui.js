@@ -55,6 +55,7 @@
   new MutationObserver(()=>{const step=root.getAttribute('data-workflow-step');if(step!==lastStep){cancel();lastStep=step;}}).observe(root,{attributes:true,attributeFilter:['data-workflow-step']});
   document.addEventListener('visibilitychange',()=>{cancel();touches.clear();});
   window.addEventListener('blur',()=>{cancel();touches.clear();});
+  window.addEventListener('orientationchange',()=>{cancel();touches.clear();});
   media.addEventListener('change',()=>{cancel();window.SkeleViewer?.requestRender();});
   window.SkeleMobile={isActive:()=>media.matches};
 })();
@@ -75,7 +76,7 @@
       [touch?'画像エリアをタップし、写真ライブラリやファイルから画像を選びます。':'画像を画面へドラッグ＆ドロップして、新しい3Dモデルを作ります。','PNG・JPEG・WebPに対応しています。画像は1枚ずつ、20 MB以内で選んでください。','右上の画像選択から、作成済みのモデルを切り替えられます。'],
       [view,'「左右対称化」で、元の形を使うか、左・右どちらの形に揃えるかを選びます。','形を確認したら「パーツ分割」へ進みます。'],
       [touch?'モデル表面を約0.6秒長押しすると、その位置にマーカーを追加します。':'モデル表面をダブルクリックすると、その位置にマーカーを追加します。',touch?'既存マーカーを長押しすると削除します。左右対称のペアは一緒に削除されます。':'マーカーを右クリックすると削除します。左右対称のペアは一緒に削除されます。',touch?'マーカーをダブルタップすると、左右対称をオン・オフできます。':'マーカーをダブルクリックすると左右対称を切り替えます。マーカー上のホイールで分割範囲を調整できます。','中央付近に追加したマーカーは単独、それ以外は自動で左右対称になります。変更後は色分けとジョイントを更新します。',view],
-      [touch?'パーツの中央を指でドラッグすると関節が曲がります。外側を円弧状になぞるとねじれます。':'パーツの中央をドラッグすると関節が曲がります。外側を円弧状にドラッグ、またはShiftを押しながらドラッグするとねじれます。',view,'カメラのカードで姿勢を保存し、保存した画像を選ぶと復元できます。一覧内のドラッグで並べ替えます。一覧から大きく外へドラッグし、「離すと削除」が出たところで放すと削除できます。',touch?'右上のリセットで視点と関節を初期状態に戻します。':'「表示をリセット」で視点と関節を初期状態に戻します。'],
+      [touch?'パーツの中央を指でドラッグすると関節が曲がります。外側を円弧状になぞるとねじれます。':'パーツの中央をドラッグすると関節が曲がります。外側を円弧状にドラッグ、またはShiftを押しながらドラッグするとねじれます。',view,touch?'カメラで姿勢を保存し、画像のタップで復元します。横スワイプで一覧を送り、画像の長押しで整理画面を開きます。整理画面では縦スワイプでスクロール、長押しで移動、×で削除対象にし、↶で取り消し。✓で保存、×で変更を破棄します。':'カメラのカードで姿勢を保存し、保存した画像を選ぶと復元できます。一覧内のドラッグで並べ替えます。一覧から大きく外へドラッグし、「離すと削除」が出たところで放すと削除できます。',touch?'右上のリセットで視点と関節を初期状態に戻します。':'「表示をリセット」で視点と関節を初期状態に戻します。'],
       printHelp
     ];
     byId('workflowHelpTitle').textContent=titles[step]+'の操作';
@@ -116,4 +117,32 @@
   }
   const observer=new ResizeObserver(resize);for(const button of buttons)observer.observe(button);
   window.addEventListener('resize',resize);resize();
+})();
+
+/* iOS can settle its visible height after orientationchange, independently of layout viewport. */
+(()=>{
+  const root=document.documentElement;
+  if(!root?.style)return;
+  const media=window.matchMedia('(max-width: 760px), (max-width: 1024px) and (pointer: coarse), (max-width: 1024px) and (max-height: 500px)');
+  let settleTimer;
+  function sync(){
+    if(!media.matches){root.style.removeProperty('--phone-viewport-height');root.style.removeProperty('--phone-viewport-top');return;}
+    const viewport=window.visualViewport;
+    // Preserve pinch zoom; use visual height only at the normal page scale.
+    if(viewport&&Math.abs(viewport.scale-1)>.01)return;
+    const height=viewport?.height||window.innerHeight;
+    if(height>0)root.style.setProperty('--phone-viewport-height',`${height}px`);
+    root.style.setProperty('--phone-viewport-top',`${Math.max(0,viewport?.offsetTop||0)}px`);
+    const input=document.activeElement;
+    if(!input?.matches?.('input,textarea,[contenteditable="true"]')&&window.scrollY)window.scrollTo(0,0);
+    window.SkeleViewer?.requestRender();
+  }
+  function settle(){sync();clearTimeout(settleTimer);settleTimer=setTimeout(sync,300);}
+  window.addEventListener('resize',settle);
+  window.addEventListener('orientationchange',settle);
+  window.addEventListener('pageshow',settle);
+  window.visualViewport?.addEventListener('resize',settle);
+  window.visualViewport?.addEventListener('scroll',settle);
+  media.addEventListener('change',settle);
+  sync();
 })();

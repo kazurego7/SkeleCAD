@@ -65,14 +65,17 @@ assert.doesNotMatch(rendered,/snapshotDelete/);
 let e=press();advance(1500);release(e);list.handlers.click({target:e.target});
 assert.equal(restored.id,snapshots.items()[0].id,'stationary press restores without deletion');assert.equal(snapshots.items().length,2);
 const firstBeforeMove=snapshots.items()[0];
-e=press(firstBeforeMove.id);e=move(e,340,544);assert.equal(appended.at(-1).textContent,'並べ替え');release(e);
+e=press(firstBeforeMove.id);e=move(e,340,544);assert.equal(appended.at(-1).textContent,'並べ替え');
+documentHandlers.lostpointercapture({...e,target:e.target});
+assert.ok(!appended.at(-1).removed,'implicit child capture loss must not cancel a touch drag');
+release(e);
 assert.equal(snapshots.items()[1].id,firstBeforeMove.id,'inside drag reorders');
 assert.deepEqual(JSON.parse(stored.get('skelecad.poseSnapshots.v1')).map(item=>item.order),[0,1]);
 e=press(firstBeforeMove.id,{pointerType:'mouse'});release(move(e,40,544));assert.equal(snapshots.items()[0].id,firstBeforeMove.id,'mouse reordering');
 for(const distance of [20,79]){const before=ids();e=press();e=move(e,170,500-distance);assert.equal(appended.at(-1).textContent,'離すと元に戻ります');release(e);assert.equal(ids(),before,'near outside cancels');}
 e=press();e=move(e,170,400);assert.equal(appended.at(-1).textContent,'離すと削除');assert.equal(appended.at(-2).dataset.delete,'true');release(move(e,40,544));assert.equal(snapshots.items().length,2,'returning inside disarms deletion');
 e=press();e=move(e,170,400);release({...e,clientY:490});assert.equal(snapshots.items().length,2,'release position is authoritative');
-for(const cancel of [e=>documentHandlers.pointercancel(e),e=>documentHandlers.lostpointercapture(e),()=>windowHandlers.blur(),()=>documentHandlers.visibilitychange(),()=>snapshots.render(),e=>documentHandlers.pointerdown({...e,pointerId:2})]){
+for(const cancel of [e=>documentHandlers.pointercancel(e),e=>documentHandlers.lostpointercapture({...e,target:list}),()=>windowHandlers.blur(),()=>documentHandlers.visibilitychange(),()=>snapshots.render(),e=>documentHandlers.pointerdown({...e,pointerId:2})]){
  const before=ids();e=press();e=move(e,170,400);cancel(e);release(e);documentHandlers.pointerup({pointerId:2});assert.equal(ids(),before,'interruptions cancel deletion');assert.ok(appended.at(-1).removed&&appended.at(-2).removed);
 }
 e=press();e=move(e,170,400);currentModel='other-model';release(e);currentModel='model-a';assert.equal(snapshots.items().length,2,'model change cancels');

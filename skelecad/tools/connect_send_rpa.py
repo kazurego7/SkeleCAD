@@ -107,8 +107,8 @@ def send_once(staged, digest, expected_path, output, preparation, result):
     _click_verified_button(fresh, plan, 'send_dialog', verify_dialog=True)
     result.update(send_clicked=True, message='Sendを押しました。プリンターの状態を確認しています…')
     save(output / 'result.json', result)
-    deadline = time.monotonic() + 45
-    for index in range(60):
+    deadline = time.monotonic() + 180
+    for index in range(180):
         if time.monotonic() > deadline:
             break
         if index:

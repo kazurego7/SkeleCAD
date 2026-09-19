@@ -7,7 +7,8 @@
   --phone-canvas-top:var(--phone-header);
   --phone-canvas-bottom:var(--phone-nav);
 }
-body { height:100dvh;overscroll-behavior:none; }
+html { height:100%;overflow:hidden;overscroll-behavior:none; }
+body { position:fixed;left:0;right:0;top:var(--phone-viewport-top,0px);bottom:auto;height:var(--phone-viewport-height,100dvh);overflow:hidden;overscroll-behavior:none;transform:translateZ(0); }
 .mobileOnly { display:block; }
 button { min-width:44px;min-height:44px;touch-action:manipulation;font-size:13px; }
 header { height:var(--phone-header);padding:calc(8px + var(--phone-top)) max(12px,env(safe-area-inset-right)) 8px max(12px,env(safe-area-inset-left));align-items:center;gap:12px;background:#1b1e23f5;border-bottom:1px solid #ffffff12; }
@@ -18,7 +19,7 @@ h1 { font-size:16px; }
 .controls .modelPicker { width:auto;max-width:100%;min-width:0;flex:1;height:44px;padding:0 12px;font-size:12px; }
 #generationStop { flex:0 0 44px; }
 #printState { display:none; }
-#gl { position:fixed;left:0;top:var(--phone-canvas-top);width:100%;height:calc(100dvh - var(--phone-canvas-top) - var(--phone-canvas-bottom)); }
+#gl { position:fixed;left:0;top:var(--phone-canvas-top);width:100%;height:calc(var(--phone-viewport-height,100dvh) - var(--phone-canvas-top) - var(--phone-canvas-bottom)); }
 #workflowBar { z-index:6;top:auto;bottom:0;left:0;transform:none;width:100%;height:var(--phone-nav);display:flex;align-items:stretch;padding:6px max(6px,env(safe-area-inset-right)) calc(6px + var(--phone-bottom)) max(6px,env(safe-area-inset-left));gap:0;filter:none;background:#20262cf7;border-top:1px solid #ffffff20;white-space:nowrap; }
 #workflowBar button { flex:1;min-width:0;width:auto;height:48px;margin:0 0 0 -7px;padding:0 10px 0 16px;clip-path:polygon(0 0,calc(100% - 10px) 0,100% 50%,calc(100% - 10px) 100%,0 100%,10px 50%);border-radius:0;font-size:10px;line-height:1.4;white-space:nowrap;overflow-wrap:normal; }
 #workflowBar button:first-child { margin-left:0;padding-left:6px;border-radius:7px 0 0 7px;clip-path:polygon(0 0,calc(100% - 10px) 0,100% 50%,calc(100% - 10px) 100%,0 100%); }
@@ -35,7 +36,7 @@ h1 { font-size:16px; }
 #selectionInfo { bottom:calc(var(--phone-nav) + 6px);max-width:calc(100% - 24px);font-size:11px;line-height:1.5; }
 #workflowStatus { width:auto;max-width:none;left:12px;right:68px;transform:none;z-index:5;top:calc(var(--phone-header) + 44px);bottom:auto;max-height:46px;overflow:auto;margin:0;padding:4px 6px;border-radius:6px;background:#20262cb3;font-size:10px;line-height:1.5;pointer-events:auto; }
 #collisionResult { z-index:5;top:calc(var(--phone-header) + 94px);max-height:64px;overflow:auto;pointer-events:auto; }
-#status { top:calc((100dvh + var(--phone-canvas-top) - var(--phone-canvas-bottom))/2);width:max-content;max-width:calc(100% - 32px);font-size:12px;z-index:5; }
+#status { top:calc((var(--phone-viewport-height,100dvh) + var(--phone-canvas-top) - var(--phone-canvas-bottom))/2);width:max-content;max-width:calc(100% - 32px);font-size:12px;z-index:5; }
 #generationProgress { bottom:calc(var(--phone-nav) + 8px);width:calc(100% - 24px);max-height:100px; }
 #generationPause { width:44px;height:44px;flex-basis:44px; }
 #workflowImage { inset:var(--phone-canvas-top) 12px calc(var(--phone-nav) + 8px);padding:16px;gap:12px;overflow:auto; }
@@ -45,17 +46,17 @@ h1 { font-size:16px; }
 #workflowImage .mobileOnly { flex-shrink:0; }
 #workflowImageMessage { flex-shrink:0; }
 /* Reuse the desktop pose cards as a compact, horizontally scrolling tray. */
-html:has(#poseSnapshots:not([hidden])) { --phone-canvas-bottom:calc(var(--phone-nav) + 110px); }
-#poseSnapshots { display:block;top:auto;bottom:var(--phone-nav);left:0;right:0;width:100%;height:90px;padding:5px 10px;border-radius:0;overflow-x:auto;overflow-y:hidden;scrollbar-gutter:auto;background:#20262cee; }
+html:has(#poseSnapshots:not([hidden])) { --phone-canvas-bottom:calc(var(--phone-nav) + 116px); }
+#poseSnapshots { display:block;top:auto;bottom:var(--phone-nav);left:0;right:0;width:100%;height:96px;padding:5px 10px;border-radius:0;overflow-x:auto;overflow-y:hidden;scrollbar-gutter:auto;background:#20262cee; }
 #snapshotList { display:flex;gap:8px;min-height:0;height:78px;padding:0; }
 .snapshotCard { flex:0 0 100px;height:76px; }
 .snapshotRestore img,.snapshotPlaceholder,.snapshotAdd { height:74px;aspect-ratio:4/3; }
-html:has(#poseSnapshots:not([hidden])) #selectionInfo { bottom:calc(var(--phone-nav) + 94px); }
-html:has(#poseSnapshots:not([hidden])) #generationProgress { bottom:calc(var(--phone-nav) + 94px); }
+html:has(#poseSnapshots:not([hidden])) #selectionInfo { bottom:calc(var(--phone-nav) + 100px); }
+html:has(#poseSnapshots:not([hidden])) #generationProgress { bottom:calc(var(--phone-nav) + 100px); }
 .snapshotCard { min-width:0; }
 .partitionMarker { min-width:0;min-height:0;touch-action:none;border-width:1px;font-size:clamp(8px,calc(var(--marker-size,20px) * .55),13px); }
 
-.modelGallery { position:fixed;inset:0;margin:0;width:100%;max-width:100%;height:100dvh;max-height:100dvh;border:0;border-radius:0;padding:var(--phone-top) 0 var(--phone-bottom); }
+.modelGallery { position:fixed;inset:0;margin:0;width:100%;max-width:100%;height:var(--phone-viewport-height,100dvh);max-height:var(--phone-viewport-height,100dvh);border:0;border-radius:0;padding:var(--phone-top) 0 var(--phone-bottom); }
 .modelGalleryHeader { min-height:64px;padding:8px 12px;flex-wrap:wrap;gap:6px; }
 .modelGalleryHeader h2 { font-size:16px; }
 .modelGalleryActions { margin-left:auto;gap:6px; }
@@ -68,32 +69,14 @@ html:has(#poseSnapshots:not([hidden])) #generationProgress { bottom:calc(var(--p
 .modelCardImage,.modelCardPlaceholder { height:140px; }
 .modelCardText { padding:6px 8px; }
 .modelCardRestore { min-width:44px;min-height:44px;padding:0 8px; }
-.symmetryDialog { max-height:calc(100dvh - var(--phone-top) - var(--phone-bottom) - 20px);padding:16px;width:calc(100% - 20px);max-width:calc(100% - 20px); }
+.symmetryDialog { max-height:calc(var(--phone-viewport-height,100dvh) - var(--phone-top) - var(--phone-bottom) - 20px);padding:16px;width:calc(100% - 20px);max-width:calc(100% - 20px); }
 .symmetryCards { grid-template-columns:1fr;gap:10px; }
 .symmetryCard { display:grid;grid-template-columns:76px 1fr;min-height:94px;gap:4px 12px;margin:0;padding:10px;text-align:left; }
 .symmetryCard svg { grid-row:span 2;width:76px;height:60px; }
 .symmetryCard strong { align-self:end;font-size:14px; }
 .symmetryCard span { align-self:start;font-size:12px; }
 .symmetryFooter .textButton { width:100%;height:48px; }
-@media(max-height:500px) and (orientation:landscape) {
-  :root { --phone-header:calc(52px + var(--phone-top));--phone-canvas-top:var(--phone-header);--phone-canvas-bottom:var(--phone-bottom); }
-  #workflowBar { left:auto;right:0;top:var(--phone-header);bottom:0;width:108px;height:auto;display:grid;grid-template-columns:1fr;grid-template-rows:repeat(5,minmax(44px,1fr));padding:4px 8px calc(4px + var(--phone-bottom));border-top:0;border-left:1px solid #ffffff20; }
-  #workflowBar button,#workflowBar button:first-child,#workflowBar #step4 { height:100%;min-height:44px;width:100%;margin:0;padding:0 10px 0 16px; }
-  #gl { width:calc(100% - 108px); }
-  html:has(#poseSnapshots:not([hidden])) { --phone-canvas-bottom:calc(120px + var(--phone-bottom)); }
-  #poseSnapshots { bottom:var(--phone-bottom);right:108px;width:calc(100% - 108px);height:90px; }
-  html:has(#poseSnapshots:not([hidden])) #selectionInfo,html:has(#poseSnapshots:not([hidden])) #generationProgress { bottom:calc(94px + var(--phone-bottom)); }
-  #workflowTools,html:has(#workflowHint[data-error="true"]) #workflowTools { right:118px; }
-  #workflowHint,#workflowHint[data-error="true"] { top:calc(var(--phone-header) + 8px);left:12px;right:176px;max-height:32px; }
-  #selectionInfo { bottom:calc(6px + var(--phone-bottom));left:calc((100% - 108px)/2); }
-  #workflowStatus { left:12px;right:176px; }
-  #collisionResult { top:calc(var(--phone-header) + 94px);left:calc((100% - 108px)/2); }
-  #status { left:calc((100% - 108px)/2); }
-  #workflowImage { right:120px;bottom:calc(8px + var(--phone-bottom));flex-direction:row;flex-wrap:wrap; }
-  #workflowImage #workflowSource { max-width:38%;max-height:100%; }
-  #workflowImage p.mobileOnly { max-width:46%; }
-  #generationProgress { left:calc((100% - 108px)/2);bottom:calc(8px + var(--phone-bottom));width:min(390px,calc(100% - 140px)); }
-}
+
 /* Keep editing surfaces native-menu-free while preserving text entry. */
 body { -webkit-user-select:none;user-select:none;-webkit-touch-callout:none; }
 input,textarea,[contenteditable="true"] { -webkit-user-select:text;user-select:text;-webkit-touch-callout:default; }
@@ -106,19 +89,63 @@ img { -webkit-user-drag:none; }
 #workflowHint,#selectionInfo { display:none; }
 #workflowStatus,#workflowHint[data-error="true"] { top:auto;bottom:calc(var(--phone-nav) + 8px);left:12px;right:12px;max-height:54px;width:auto;max-width:none;transform:none;margin:0;font-size:11px;line-height:1.5; }
 #workflowHint[data-error="true"] { display:block;max-height:min(120px,25dvh);overflow-wrap:anywhere; }
-html:has(#poseSnapshots:not([hidden])) #workflowStatus,html:has(#poseSnapshots:not([hidden])) #workflowHint[data-error="true"] { bottom:calc(var(--phone-nav) + 98px); }
+html:has(#poseSnapshots:not([hidden])) #workflowStatus,html:has(#poseSnapshots:not([hidden])) #workflowHint[data-error="true"] { bottom:calc(var(--phone-nav) + 104px); }
 html:has(#workflowHint[data-error="true"]) #workflowStatus { display:none; }
 html:has(#generationProgress:not([hidden])) #workflowStatus { bottom:calc(var(--phone-nav) + 112px); }
-html:has(#generationProgress:not([hidden])):has(#poseSnapshots:not([hidden])) #workflowStatus { bottom:calc(var(--phone-nav) + 198px); }
-@media(max-height:500px) and (orientation:landscape) {
-  #workflowStatus,#workflowHint[data-error="true"] { bottom:calc(var(--phone-bottom) + 8px);right:120px; }
-  html:has(#poseSnapshots:not([hidden])) #workflowStatus,html:has(#poseSnapshots:not([hidden])) #workflowHint[data-error="true"] { bottom:calc(var(--phone-bottom) + 98px); }
-  html:has(#generationProgress:not([hidden])) #workflowStatus { bottom:calc(var(--phone-bottom) + 112px); }
-  html:has(#generationProgress:not([hidden])):has(#poseSnapshots:not([hidden])) #workflowStatus { bottom:calc(var(--phone-bottom) + 198px); }
-}
+html:has(#generationProgress:not([hidden])):has(#poseSnapshots:not([hidden])) #workflowStatus { bottom:calc(var(--phone-nav) + 204px); }
+
 
 #workflowBar button,#workflowBar button:first-child,#workflowBar #step2,#workflowBar #step4 { flex:1 1 0;padding-left:12px;padding-right:12px;font-size:11px; }
 #workflowBar .workflowStepSecond { display:block; }
 
 
 #workflowBar { --workflow-notch:10px;--workflow-corner:7px; }
+
+/* Mobile-only organizer; desktop retains its existing list and drag behavior. */
+#poseSnapshots .snapshotCard,#poseSnapshots .snapshotRestore { touch-action:pan-x;cursor:pointer; }
+#snapshotEditor { position:fixed;inset:0;margin:0;width:100%;max-width:none;height:var(--phone-viewport-height,100dvh);max-height:none;padding:0;border:0;border-radius:0;background:#20242a;color:#eee;overflow:hidden; }
+#snapshotEditor[open] { display:flex;flex-direction:column; }
+.snapshotEditorHeader { display:flex;align-items:center;justify-content:space-between;gap:8px;flex:none;padding:calc(4px + env(safe-area-inset-top,0px)) 10px 4px;border-bottom:1px solid #ffffff22; }
+.snapshotEditorHeader h2 { font-size:15px;margin:0; }
+.snapshotEditorHeader button { width:40px;min-width:40px;height:40px;min-height:40px;margin:0;padding:0;font-size:23px; }
+#snapshotEditorDone { background:#326b5e; }
+#snapshotEditorStatus { flex:none;margin:0;padding:10px 16px;font-size:12px;min-height:38px; }
+#snapshotEditorScroll { flex:1;min-height:0;overflow-y:auto;overflow-x:hidden;overscroll-behavior:contain;touch-action:pan-y;padding:10px 16px calc(24px + env(safe-area-inset-bottom,0px)); }
+#snapshotEditorGrid { display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px;align-content:start; }
+.snapshotEditCard { position:relative;min-width:0;border:1px solid #ffffff35;border-radius:12px;background:#2c3037;touch-action:none; }
+.snapshotEditImage { display:block;width:100%;height:auto;margin:0;padding:0;overflow:hidden;border:0;border-radius:12px;touch-action:none;background:#33383f; }
+.snapshotEditImage img { display:block;width:100%;aspect-ratio:4/3;object-fit:contain;pointer-events:none; }
+.snapshotEditDelete { position:absolute;right:-8px;top:-8px;margin:0;border-radius:50%;width:28px;min-width:28px;height:28px;min-height:28px;padding:0;background:#923d45;font-size:20px; }
+.snapshotEditCard.dragging { opacity:.35; }
+.snapshotEditCard.dragTarget { outline:3px solid #e5c68d; }
+.snapshotEditGhost { position:fixed;pointer-events:none;z-index:2;background:#33383f;border:2px solid #e5c68d;border-radius:12px;opacity:.95;box-shadow:0 8px 24px #0008; }
+.snapshotEditGhost img { width:100%;aspect-ratio:4/3;object-fit:contain; }
+
+#snapshotEditor[open] { animation:snapshotEditorEnter 220ms cubic-bezier(.2,.7,.2,1) both; }
+@keyframes snapshotEditorEnter { from { opacity:0;transform:translateY(28px); } to { opacity:1;transform:translateY(0); } }
+.snapshotEditCard.pendingDelete { border-color:#e1818c;border-style:dashed;background:#71333f;box-shadow:inset 0 0 0 1px #e1818c55; }
+.snapshotEditCard.pendingDelete .snapshotEditImage { opacity:.3; }
+.snapshotEditDelete { z-index:1; }
+.snapshotEditCard.pendingDelete .snapshotEditDelete { background:#4d626c; }
+@media(prefers-reduced-motion:reduce) { #snapshotEditor[open] { animation:none; } }
+
+/* Landscape keeps navigation below and moves snapshots beside the model. */
+@media(max-height:500px) and (orientation:landscape) {
+  :root { --phone-header:calc(52px + var(--phone-top));--phone-side:0px; }
+  html:has(#poseSnapshots:not([hidden])) { --phone-canvas-bottom:var(--phone-nav);--phone-side:124px; }
+  #gl { width:calc(100% - var(--phone-side)); }
+  #poseSnapshots { top:var(--phone-header);bottom:var(--phone-nav);left:auto;right:0;width:124px;height:auto;padding:8px 10px;overflow-x:hidden;overflow-y:auto;border-left:1px solid #ffffff20; }
+  #snapshotList { flex-direction:column;height:auto; }
+  #snapshotList .snapshotCard { flex:0 0 76px;width:100px; }
+  #poseSnapshots .snapshotCard,#poseSnapshots .snapshotRestore { touch-action:pan-y; }
+  #workflowTools,html:has(#workflowHint[data-error="true"]) #workflowTools { right:calc(var(--phone-side) + 10px); }
+  #workflowStatus,#workflowHint[data-error="true"],html:has(#poseSnapshots:not([hidden])) #workflowStatus,html:has(#poseSnapshots:not([hidden])) #workflowHint[data-error="true"] { bottom:calc(var(--phone-nav) + 6px);right:calc(var(--phone-side) + 12px);max-height:42px; }
+  #generationProgress,html:has(#poseSnapshots:not([hidden])) #generationProgress { bottom:calc(var(--phone-nav) + 8px);left:calc((100% - var(--phone-side))/2);width:calc(100% - var(--phone-side) - 24px); }
+  html:has(#generationProgress:not([hidden])) #workflowStatus,html:has(#generationProgress:not([hidden])):has(#poseSnapshots:not([hidden])) #workflowStatus { bottom:calc(var(--phone-nav) + 112px); }
+  #status,#collisionResult { left:calc((100% - var(--phone-side))/2); }
+  #workflowImage { flex-direction:row; }
+  #workflowImage #workflowSource { max-width:50%;max-height:100%; }
+  #snapshotEditorGrid { grid-template-columns:repeat(3,minmax(0,1fr)); }
+  .modelGalleryList { grid-template-columns:repeat(3,minmax(0,1fr)); }
+  dialog:not(#snapshotEditor):not(.modelGallery) { max-height:calc(var(--phone-viewport-height,100dvh) - 16px);overflow-y:auto; }
+}

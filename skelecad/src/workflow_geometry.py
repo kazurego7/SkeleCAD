@@ -134,6 +134,18 @@ def choose_root_candidate(cores,links):
     return max(degree,key=lambda name:(degree[name],areas[name]))
 
 
+def infer_review_branches(mesh,candidates,parameters):
+    """Use exactly the accepted marker masks for both preview and joint graph."""
+    branches=infer_branches(mesh,candidates,parameters)
+    active=[c for c in candidates if c['classification']=='two_part_junction']
+    if len(active)==len(candidates):return branches
+    while True:
+        branches=infer_branches(mesh,active,parameters)
+        retained=[c for c in active if c['classification']=='two_part_junction']
+        if len(retained)==len(active):return branches
+        active=retained
+
+
 def partition_preview(mesh,candidates,branches,parameters,output_directory,filename_prefix='preview'):
     """Color a complete surface by geodesic distance from the inferred part cores.
 
@@ -187,7 +199,7 @@ def partition_preview(mesh,candidates,branches,parameters,output_directory,filen
 def analyse(input_path, output_path, parameters):
     mesh=trimesh.load(input_path,force='mesh',process=True)
     candidates=sphere_candidates(mesh,parameters)
-    branches=infer_branches(mesh,candidates,parameters)
+    branches=infer_review_branches(mesh,candidates,parameters)
     preview=partition_preview(mesh,candidates,branches,parameters,output_path.parent)
     report={'schema_version':1,'source_sha256':hashlib.sha256(input_path.read_bytes()).hexdigest(),
             'method':'surface-normal sphere fitting, no anatomical labels or fixed centres',

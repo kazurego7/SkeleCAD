@@ -96,6 +96,22 @@ const key=(key,shiftKey=false)=>api.canvas.handlers.keydown({key,shiftKey,preven
   pickedPart='foot_right';ui.pointerDown(e);ui.pointerEnd();
   key('ArrowRight',true);finish(w);assert.deepEqual(pose().ankle_right,[0,0,1]);
   const saved=ui.joints().map(j=>({...j,angles:j.name==='hip_right'?[11,12,13]:[0,0,0]}));
+  key('ArrowUp'); // A previous pose is still being checked when snapshots switch.
+  ui.restore({joints:saved});
+  const latest=saved.map(j=>({...j,angles:j.name==='hip_right'?[31,32,33]:[0,0,0]}));
+  ui.restore({joints:latest});
+  assert.deepEqual(pose().hip_right,[31,32,33],'snapshot pose displays synchronously with its camera');
+  const snapshotMatrix=Array.from(ui.matrix('leg_right'));
+  assert.equal(ui.reviewState().ready,false,'immediate display does not certify collisions');
+  assert.equal(api.canvas.dataset.collisionState,'pending');
+  finish(w,[{a:'torso',b:'leg_right'}]);
+  assert.deepEqual(pose().hip_right,[31,32,33],'late previous result cannot flash the previous snapshot');
+  assert.equal(ui.overlay().points.length,0);assert.equal(element('collisionResult').hidden,true);
+  assert.equal(ui.reviewState().ready,false);
+  finish(w);
+  assert.deepEqual(Array.from(ui.matrix('leg_right')),snapshotMatrix);
+  assert.equal(ui.reviewState().ready,true);
+  assert.equal(api.canvas.dataset.collisionRevision,api.canvas.dataset.poseRevision);
   assert.deepEqual(JSON.parse(JSON.stringify(ui.restore({joints:saved}))),{restored:8,total:8});finish(w);assert.deepEqual(pose().hip_right,[11,12,13]);
   const renamed=saved.map(j=>j.name==='hip_right'?{...j,name:'changed_joint',angles:[21,22,23]}:j);
   assert.deepEqual(JSON.parse(JSON.stringify(ui.restore({joints:renamed}))),{restored:8,total:8});finish(w);assert.deepEqual(pose().hip_right,[21,22,23],'renamed joint restores by stable moving part');

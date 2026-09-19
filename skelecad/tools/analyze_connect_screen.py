@@ -250,6 +250,15 @@ def analyze(report, image, buttons, spool=None):
         'printer_label_candidates': printer_candidates,
         'filename_line_candidates': [line['text'] for line in lines if re.search(r'\S+\.gcode\.3mf', line['text'], re.I)
                                      and not line['text'].startswith('Click to select')],
+        'send_button_loading': any(
+            w.get('text') == 'Send' and b['bounds'][0] <= w['x'] < b['bounds'][2]
+            and b['bounds'][1] <= w['y'] < b['bounds'][3]
+            and w['x'] + w['width'] / 2 > (b['bounds'][0] + b['bounds'][2]) / 2 + 5
+            for w in words for b in buttons if b.get('text') == 'Send'),
+        'cancel_button_candidates': [
+            {'text': 'Cancel', 'bounds': [min(w['x'] for w in line['words']), min(w['y'] for w in line['words']),
+                                        max(w['x'] + w['width'] for w in line['words']), max(w['y'] + w['height'] for w in line['words'])]}
+            for line in lines if line['text'].strip() == 'Cancel' and line['words']],
         'green_button_candidates': buttons, 'option_visual_candidates': options,
         'filament_text_visible': 'PLA' if re.search(r'\bPLA\b', text) else None,
         'blocking_message_candidates': [line['text'] for line in lines

@@ -47,7 +47,8 @@ def symmetrize_yz(mesh, source_side):
     mirrored = kept.transform([[-1.0, 0.0, 0.0, 0.0],
                                [0.0, 1.0, 0.0, 0.0],
                                [0.0, 0.0, 1.0, 0.0]])
-    result = from_solid(kept + mirrored)
+    # Retain negative internal cavity shells instead of orienting every shell outward.
+    result = from_solid(kept + mirrored, clean_faces=False)
     if not result.is_volume:
         raise ValueError('中央の継ぎ目を閉じた左右対称形状を作れませんでした。')
     tolerance = 2e-4

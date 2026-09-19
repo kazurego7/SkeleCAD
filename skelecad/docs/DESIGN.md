@@ -56,8 +56,8 @@ The viewer consumes arbitrary part manifests and validated parent graphs;
 oblique joint bases are orthonormal. Articulation remains disabled on open preview
 groups. A contextual machining action now queues an isolated mechanical revision.
 The FreeCAD authority authors finite sphere cuts around inferred old joint bulbs,
-plus experimental C4_28 joints (6 mm ball, 6.15 mm cavity, 2.8 mm stem). These do
-NOT replace production joint-v3 or claim physical fit. All resulting components
+plus C4_28 joints (6 mm ball, 5.75 mm cavity, 2.8 mm stem). These do
+NOT replace the separate production joint-v3. The U8 coupon fit was selected by the user; fit and strength of the full model still require physical review. All resulting components
 must map one-to-one to inferred cores; none are silently discarded. Local finishing
 uses one declared strength and reports a hard error instead of weakening the operation.
 Anchors must be
@@ -746,6 +746,24 @@ must obey the same selected-marker-only merge policy before they can be displaye
 
 ## Image-generation progress
 
+New image jobs use resolution 512, 30 diffusion steps, guidance 5.0, seed 3407,
+and the existing `hierarchical_full` decoder with 8000 query chunks. These are
+appearance settings only; they do not guarantee anatomical connectivity.
+Automatic additive connectivity repair is enabled at the user's updated request.
+It connects positive-volume shells only across gaps up to 2 mm with rounded
+1.25 mm radius bridges. A shortest-edge forest limits redundant supports.
+Negative internal cavity shells are retained and excluded from bridge material;
+YZ-symmetric sources receive mirrored bridges. Save the unrepaired STL and audit
+the actual exported result for closed topology, reduced body count, source loss,
+and cavity filling, each with a 0.001 mm3 volume tolerance. Disconnected bodies
+beyond the gap limit remain visible and are reported unless they meet the
+explicit isolated-speck cleanup criteria below.
+The symmetric Boolean export preserves cavity orientation, avoiding the previous
+per-shell normal repair which incorrectly turned internal shells outward.
+These image-derived supports are not mechanically certified by specimen CAE.
+Existing image jobs retain their inference provenance and are not regenerated
+when the defaults change.
+
 The selected image job exposes a display-only progress summary while preparing,
 generating or analysing. It combines the configured RTX 3060 phase estimates
 with the most recent bounded Hunyuan counters for diffusion sampling and volume
@@ -768,3 +786,25 @@ total surface area. The largest component is always retained, as are all major
 detached components. Cleanup occurs before centering and scaling so remote debris
 cannot shrink the subject's final 120 mm envelope. The manifest records removed
 component, face, area and volume totals for review.
+
+High-resolution specks can exceed the face-count threshold. A second pass removes
+only closed positive-volume components with maximum extent <= 1.5 mm, volume
+<= 0.5 mm3, and surface separation > 2 mm from retained substantial bodies.
+Negative internal cavity shells and nearby small anatomy remain intact. The pass
+uses physical size referenced to substantial shells before final framing and runs
+before connectivity repair. The manifest records each removed component and its
+distance. Existing-job cleanup preserves an immutable original and changes only
+the qualifying shells, without rescaling or re-running image inference.
+The same pass runs after YZ symmetry, including when symmetry uses an older
+immutable original. This prevents removed specks from returning as mirrored pairs.
+Publishing an existing-model repair also refreshes its independent symmetry-state
+snapshot so switching views cannot restore the pre-repair mesh from that cache.
+
+### Image workflow holding adjustment — 2026-09-19
+User reports that seated joints move under the model weight. Workflow-only diametral clearance is reduced from 0.15 to 0.05 mm; the 6 mm ball, 5.6 mm retention opening and 2.8 mm stem remain unchanged. The standalone C4 calibration and previously selected production S3 fit are unchanged. CAD cavity guards and socket bridge dimensions use the same resolved clearance as the shell. This reduces play but is not a measured holding torque; physical pose holding must be checked after printing. Existing revisions retain their recorded geometry.
+
+### Workflow holding step trial R5 — 2026-09-19
+User physically prefers R4 T5 and requests ten fits at or above that tightness. R5 U1 repeats the 0.075 mm diametral interference baseline; U2 through U10 increase interference in 0.025 mm steps up to 0.300 mm (5.700 mm cavity). All keep the 6 mm ball, 2.8 mm stem and 5.6 mm opening. R4 and production defaults are retained. Each coupon has an engraved number 1–10 instead of dot labels. The R5 undercut audit uses a cavity-sized reference sphere to separate capture geometry from spherical preload: zero seated reference interference and positive withdrawal reference interference are required. Actual ball overlap is reported independently; no elastic holding or insertion-force claim is inferred from volume. Existing R2/R3/R4 audit acceptance is unchanged.
+
+### Selected image-workflow fit: R5 U8
+User physically reports U8 is tight but fits and is preferred; U9 cannot be inserted. Image workflow C4_28 now uses U8: 6 mm ball, 5.750 mm cavity (0.250 mm diametral interference), 2.8 mm stem, 5.6 mm opening. The resolver requires negative-clearance variants to match the recorded physically selected coupon dimensions. This supersedes the temporary 6.05 mm cavity. Historical trials and the separate S3 T. rex profile remain unchanged. Coupon fit is confirmed by the user; model attachment strength, fatigue and long-term holding are still not certified.

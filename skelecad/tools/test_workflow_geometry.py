@@ -86,4 +86,26 @@ class CandidateTests(unittest.TestCase):
             self.assertTrue(all((directory/p['filename']).is_file() for p in result['parts']))
 
 
+class RejectedMarkerGraphTests(unittest.TestCase):
+    def test_rejected_three_way_region_does_not_leave_extra_joint_cores(self):
+        from workflow_geometry import infer_review_branches
+        horizontal=trimesh.creation.box([60,4,4])
+        vertical=trimesh.creation.box([4,30,4]);vertical.apply_translation([0,15,0])
+        mesh=trimesh.boolean.union([horizontal,vertical],engine='manifold')
+        vertices,faces=trimesh.remesh.subdivide_to_size(mesh.vertices,mesh.faces,max_edge=2)
+        mesh=trimesh.Trimesh(vertices,faces,process=True)
+        markers=[{'name':'valid','center':[15,0,0],'radius_mm':3},
+                 {'name':'three_way','center':[0,0,0],'radius_mm':5}]
+        initial=infer_branches(mesh,markers,SETTINGS)
+        self.assertGreater(len(initial['cores']),2)
+        branches=infer_review_branches(mesh,markers,SETTINGS)
+        self.assertEqual(markers[0]['classification'],'two_part_junction')
+        self.assertNotEqual(markers[1]['classification'],'two_part_junction')
+        self.assertEqual(len(branches['cores']),2)
+        with tempfile.TemporaryDirectory() as temporary:
+            preview=partition_preview(mesh,markers,branches,SETTINGS,Path(temporary))
+            self.assertEqual(len(preview['parts']),len(branches['cores']))
+            self.assertEqual(preview['assigned_faces'],len(mesh.faces))
+
+
 if __name__=='__main__':unittest.main()

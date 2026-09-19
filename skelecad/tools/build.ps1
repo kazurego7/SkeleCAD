@@ -49,6 +49,22 @@ if ($buildParameters.joint_holding_step_trial) {
     & $meshPython (Join-Path $project 'tools/validate_holding_meshes.py') 'joint_holding_step_trial'
     if ($LASTEXITCODE -ne 0) { throw 'Holding step trial STL/3MF topology check failed' }
 }
+if ($buildParameters.joint_workflow_holding_trial) {
+    & $python (Join-Path $project 'src/freecad_project.py') --workflow-holding-trial
+    if ($LASTEXITCODE -ne 0) { throw 'Workflow holding trial CAD/motion failed' }
+    & $meshPython (Join-Path $project 'tools/validate_holding_meshes.py') 'joint_workflow_holding_trial'
+    if ($LASTEXITCODE -ne 0) { throw 'Workflow holding trial topology failed' }
+    & $meshPython (Join-Path $project 'tools/prepare_workflow_holding_print.py')
+    if ($LASTEXITCODE -ne 0) { throw 'Workflow holding trial packaging failed' }
+}
+if ($buildParameters.joint_workflow_holding_step_trial) {
+    & $python (Join-Path $project 'src/freecad_project.py') --workflow-holding-step-trial
+    if ($LASTEXITCODE -ne 0) { throw 'R5 holding CAD/motion failed' }
+    & $meshPython (Join-Path $project 'tools/validate_holding_meshes.py') 'joint_workflow_holding_step_trial'
+    if ($LASTEXITCODE -ne 0) { throw 'R5 holding topology failed' }
+    & $meshPython (Join-Path $project 'tools/prepare_workflow_holding_print.py') 'joint_workflow_holding_step_trial'
+    if ($LASTEXITCODE -ne 0) { throw 'R5 holding packaging failed' }
+}
 & $meshPython (Join-Path $project "src\prepare_generated_appearance.py") `
     --input (Join-Path $project "build\generated_appearance\trex_appearance_200mm.stl") `
     --output (Join-Path $project "build\generated_appearance\trex_appearance_200mm_outward.stl") `
@@ -128,6 +144,14 @@ if ($buildParameters.joint_holding_step_trial) {
     & $python (Join-Path $project 'src/cae_holding_step_trial.py')
     if ($LASTEXITCODE -ne 0) { throw 'Holding step trial comparative CAE failed' }
 }
+if ($buildParameters.joint_workflow_holding_trial) {
+    & $python (Join-Path $project 'src/cae_holding_trial.py') 'joint_workflow_holding_trial'
+    if ($LASTEXITCODE -ne 0) { throw 'Workflow holding trial CAE failed' }
+}
+if ($buildParameters.joint_workflow_holding_step_trial) {
+    & $python (Join-Path $project 'src/cae_holding_trial.py') 'joint_workflow_holding_step_trial'
+    if ($LASTEXITCODE -ne 0) { throw 'R5 holding CAE failed' }
+}
 if (-not $buildParameters.hybrid_new) {
 foreach ($preview in @(@{ Name = "orthographic"; Width = 1200; Height = 720 })) {
     $svg = (Resolve-Path -LiteralPath (Join-Path $project "build\preview\$($preview.Name).svg")).Path
@@ -144,6 +168,17 @@ $hybridPreview = Join-Path $project "build\preview\hybrid_assembly.png"
 & $blender --background --python-exit-code 1 --python (Join-Path $project "tools\render_generated_mesh.py") -- --input $hybridStl --output $hybridPreview --view hero
 if ($LASTEXITCODE -ne 0) { throw "Hybrid assembly preview rendering failed: $LASTEXITCODE" }
 Copy-Item -LiteralPath $hybridPreview -Destination (Join-Path $project "build\preview\assembly.png") -Force
+if ($buildParameters.joint_workflow_holding_trial) {
+    $fitOutput = Join-Path $project $buildParameters.joint_workflow_holding_trial.output_directory
+    & $blender --background --python-exit-code 1 --python (Join-Path $project 'tools/render_generated_mesh.py') -- --input (Join-Path $fitOutput 'print/plate_preview.stl') --output (Join-Path $fitOutput 'print/preview.png') --view hero
+    if ($LASTEXITCODE -ne 0) { throw 'Workflow holding trial preview failed' }
+}
+
+if ($buildParameters.joint_workflow_holding_step_trial) {
+    $fitOutput = Join-Path $project $buildParameters.joint_workflow_holding_step_trial.output_directory
+    & $blender --background --python-exit-code 1 --python (Join-Path $project 'tools/render_generated_mesh.py') -- --input (Join-Path $fitOutput 'print/plate_preview.stl') --output (Join-Path $fitOutput 'print/preview.png') --view top
+    if ($LASTEXITCODE -ne 0) { throw 'R5 holding preview failed' }
+}
 if ($buildParameters.hybrid_new.partition_method -eq 'local_joint_discs') {
     & $meshPython (Join-Path $project "tools\render_preservation_review.py")
     if ($LASTEXITCODE -ne 0) { throw "Anatomy preservation review failed" }

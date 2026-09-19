@@ -5,15 +5,32 @@ from pathlib import Path
 
 import FreeCAD as App
 import Mesh
+import Part
 import MeshPart
 
 import freecad_project as authority
-from freecad_workflow_tools import safe_refine, workflow_socket_shell
+from freecad_workflow_tools import safe_refine, workflow_socket_shell, resolve_workflow_variant
 from joint_retention_trial import deep_c4
 from trex_v2_project import capsule
 
 
 class WorkflowToolCadTests(unittest.TestCase):
+    def test_selected_fit_matches_coupon_and_rejects_unselected_interference(self):
+        import copy
+        params=authority.PARAMS
+        cfg=copy.deepcopy(params['image_workflow']['manufacturing'])
+        variant=resolve_workflow_variant(cfg,params)
+        self.assertEqual(variant['cavity_clearance_mm'],-.25)
+        shell,_=workflow_socket_shell(variant)
+        self.assertFalse(shell.isInside(App.Vector(-1,-1,-1).normalize()*2.865,1e-7,True))
+        self.assertTrue(shell.isInside(App.Vector(-1,-1,-1).normalize()*2.885,1e-7,True))
+        self.assertTrue(shell.isValid())
+        self.assertGreater(shell.common(Part.makeSphere(3)).Volume,0)
+        cfg['cavity_clearance_mm']=-.275
+        with self.assertRaises(ValueError):resolve_workflow_variant(cfg,params)
+        cfg.pop('fit_selection')
+        with self.assertRaises(ValueError):resolve_workflow_variant(cfg,params)
+
     def test_workflow_socket_omits_flat_calibration_mount_and_labels(self):
         trial=authority.PARAMS['joint_retention_trial']
         workflow=authority.PARAMS['image_workflow']['manufacturing']

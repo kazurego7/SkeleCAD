@@ -121,7 +121,9 @@ def deep_c4(variant, return_void=False, include_mount=True, include_labels=True)
         if not include_mount:raise ValueError('Labels require the calibration mount')
         number=variant['label_dots'] if 'label_dots' in variant else 1+next(i for i,v in enumerate(cfg['variants']) if v['label']==variant['label'])
         for i in range(number):
-            dot=Part.makeSphere(CFG['label_dot_radius_mm'],V(-ro-cfg['mount_length_mm']+1-CFG['label_dot_radius_mm']+CFG['label_dot_depth_mm'],(i-(number-1)/2)*2.4,0))
+            # Four/five dots fit on the small rear mount as a ring.
+            y,z=((1.5*math.cos(2*math.pi*i/number),1.5*math.sin(2*math.pi*i/number)) if number>3 else ((i-(number-1)/2)*2.4,0))
+            dot=Part.makeSphere(CFG['label_dot_radius_mm'],V(-ro-cfg['mount_length_mm']+1-CFG['label_dot_radius_mm']+CFG['label_dot_depth_mm'],y,z))
             result=result.cut(dot)
     result=result.removeSplitter()
     return (result,cut.fuse(slit).fuse(cross)) if return_void else result

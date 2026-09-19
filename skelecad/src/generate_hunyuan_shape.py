@@ -26,11 +26,14 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--guidance", default=5.0, type=float)
     parser.add_argument("--resolution", default=384, type=int)
     parser.add_argument("--num-chunks", default=8000, type=int)
+    parser.add_argument("--cpu-threads", type=int)
     parser.add_argument("--decoder", choices=("vanilla", "flashvdm", "hierarchical_full"), default="vanilla")
     parser.add_argument("--source-original", type=Path)
     args = parser.parse_args()
     if args.num_chunks <= 0:
         parser.error("--num-chunks must be positive")
+    if args.cpu_threads is not None and args.cpu_threads <= 0:
+        parser.error("--cpu-threads must be positive")
     return args
 
 
@@ -53,6 +56,8 @@ def main() -> None:
     sys.path.insert(0, str(package_root))
 
     import torch
+    if args.cpu_threads is not None:
+        torch.set_num_threads(args.cpu_threads)
     from PIL import Image
     from hy3dshape.pipelines import Hunyuan3DDiTFlowMatchingPipeline
 
@@ -60,6 +65,7 @@ def main() -> None:
         raise SystemExit("CUDA GPU is required for this local generation run")
 
     image = Image.open(args.input).convert("RGBA")
+    model_load_started = time.perf_counter()
     pipeline = Hunyuan3DDiTFlowMatchingPipeline.from_pretrained(
         args.model,
         device="cuda",
@@ -78,6 +84,8 @@ def main() -> None:
         num_chunks=args.num_chunks,
         output_type="latent",
     )
+    torch.cuda.synchronize()
+    diffusion_finished = time.perf_counter()
     from hunyuan_decoder import export_mesh
     with torch.inference_mode():
         mesh, actual_decoder, fallback_reason = export_mesh(
@@ -104,10 +112,14 @@ def main() -> None:
         "guidance": args.guidance,
         "octree_resolution": args.resolution,
         "num_chunks": args.num_chunks,
+        "cpu_threads": torch.get_num_threads(),
         "decoder": args.decoder,
         "actual_decoder": actual_decoder,
         "decoder_fallback_reason": fallback_reason,
         "load_seconds": loaded - started,
+        "model_load_seconds": loaded - model_load_started,
+        "diffusion_seconds": diffusion_finished - loaded,
+        "decode_seconds": generated - diffusion_finished,
         "inference_seconds": generated - loaded,
         "total_seconds": time.perf_counter() - started,
         "peak_allocated_mib": torch.cuda.max_memory_allocated() / 1024**2,

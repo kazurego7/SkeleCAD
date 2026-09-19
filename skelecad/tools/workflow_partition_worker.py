@@ -31,8 +31,8 @@ def run(directory):
         params=json.loads((PROJECT/'config/parameters.json').read_text(encoding='utf-8'))['image_workflow']['joint_detection']
         markers=copy.deepcopy(state['selected_markers'])
         sys.path.insert(0,str(PROJECT/'src'))
-        from workflow_geometry import infer_branches,partition_preview
-        branches=infer_branches(mesh,markers,params)
+        from workflow_geometry import infer_review_branches,partition_preview
+        branches=infer_review_branches(mesh,markers,params)
         accepted=[m for m in markers if m.get('classification')=='two_part_junction']
         rejected=[m for m in markers if m.get('classification')!='two_part_junction']
         for marker in accepted:marker['status']='user_selected'

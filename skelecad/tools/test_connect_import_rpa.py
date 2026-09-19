@@ -89,7 +89,7 @@ class ImportPreparation(unittest.TestCase):
             def prepare_mock(args):
                 args.output.mkdir()
                 (args.output / 'result.json').write_text(json.dumps({'status': 'stopped_before_Send', 'can_send': False}))
-            with patch('connect_import_rpa.validate_handler'), \
+            with patch('connect_import_rpa.cleanup_previous_dialog'), patch('connect_import_rpa.validate_handler'), \
                  patch('connect_import_rpa.os.startfile', create=True) as start, \
                  patch('connect_import_rpa.time.sleep'), \
                  patch('connect_import_rpa.observe', side_effect=screen_factory()), \
@@ -112,6 +112,25 @@ class ImportPreparation(unittest.TestCase):
 
     def test_import_once_then_prepare_once(self):
         self.assertEqual(self.run_flow(lambda: [self.observation, self.observation, self.preview()]), (1, 1, 1))
+
+    def test_import_animation_settles_before_single_click(self):
+        moved = copy.deepcopy(self.observation)
+        moved['green_button_candidates'][0]['bounds'] = [201, 301, 362, 332]
+        self.assertEqual(self.run_flow(lambda: [self.observation, moved, moved, moved, self.preview()]), (1, 1, 1))
+
+    def test_unstable_dialog_stops_without_click(self):
+        moved = copy.deepcopy(self.observation)
+        moved['green_button_candidates'][0]['bounds'] = [201, 301, 362, 332]
+        self.assertEqual(self.run_flow(lambda: itertools.cycle([self.observation, moved]), '安定'), (1, 0, 0))
+
+    def test_file_changes_during_recheck_stops_without_click(self):
+        foreign = copy.deepcopy(self.observation)
+        foreign['import_filename_candidates'] = ['SkeleCAD-OTHER.gcode.3mf']
+        self.assertEqual(self.run_flow(lambda: [self.observation, foreign], 'screen changed'), (1, 0, 0))
+
+    def test_old_preview_waits_for_requested_import(self):
+        old=self.preview();old['filename_line_candidates']=['SkeleCAD-OLD.gcode.3mf']
+        self.assertEqual(self.run_flow(lambda: [old,self.observation,self.observation,self.preview()]), (1,1,1))
 
     def test_auto_import_version_can_skip_confirmation(self):
         self.assertEqual(self.run_flow(lambda: [self.preview()]), (1, 0, 1))
